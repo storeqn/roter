@@ -31,7 +31,7 @@
   <div class="grid"><button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button><button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button></div>
   <div id="status" class="status">الحالة: خارج الدوام</div>
   <div class="mini-grid"><div class="stat-card"><span class="muted small">آخر تحديث</span><strong id="lastUpdate">—</strong></div><div class="stat-card"><span class="muted small">مدة التوصيل</span><strong id="deliveryTimer">—</strong></div></div>
-  <div id="coords" class="muted small coords"></div><div class="note">أبقِ الصفحة مفتوحة أثناء الدوام لضمان استمرار تحديث الموقع.</div>
+  <div id="coords" class="muted small coords"></div><div class="note">على تطبيق أندرويد يستمر إرسال الموقع حتى عند قفل الشاشة بعد بدء الدوام.</div>
 </section>
 </main>
 
@@ -51,7 +51,15 @@ order.value=localStorage.getItem("orderId")||"";place.value=localStorage.getItem
 function setShiftStatus(text,on=false){statusEl.textContent="الحالة: "+text;dot.className="live-dot "+(on?"on":"off")}
 function values(){return{name:name.value.trim(),phone:phone.value.trim(),orderId:order.value.trim(),orderLocation:place.value.trim(),orderLocationMode:locationMode,orderLat:locationMode==="map"?orderLat:null,orderLng:locationMode==="map"?orderLng:null,orderStatus,deliveryStartedAt}}
 function saveLocal(){localStorage.setItem("orderId",order.value.trim());localStorage.setItem("orderLocation",place.value.trim());localStorage.setItem("orderStatus",orderStatus);if(deliveryStartedAt)localStorage.setItem("deliveryStartedAt",deliveryStartedAt);else localStorage.removeItem("deliveryStartedAt")}
-async function saveLive(){saveLocal();if(watchId!==null)await update(ref(db,"drivers/"+uid),{...values(),updatedAt:Date.now()})}
+async function saveLive(){
+  saveLocal();
+  const meta={...values(),code,updatedAt:Date.now()};
+  if(window.AndroidBridge){
+    try{window.AndroidBridge.updateMeta(JSON.stringify(meta))}catch(e){}
+    return;
+  }
+  if(watchId!==null)await update(ref(db,"drivers/"+uid),meta);
+}
 
 async function loadAccess(){
   const ss=await get(ref(db,"sessions/"+uid));
@@ -62,6 +70,9 @@ async function loadAccess(){
   if(!(v&&v.enabled===true&&v.role==="driver"))return false;
   name.value=v.name||"";phone.value=v.phone||"";$("identityName").textContent=v.name||"دلفري";$("identityPhone").textContent=v.phone||"";
   authReady=true;
+  if(window.AndroidBridge){
+    try{window.AndroidBridge.updateMeta(JSON.stringify({...values(),code}))}catch(e){}
+  }
   if(accessUnsub)accessUnsub();
   accessUnsub=onValue(ref(db,"accessCodes/"+code),snap=>{
     const latest=snap.val();
@@ -82,7 +93,13 @@ onAuthStateChanged(auth,async user=>{
   }catch(e){console.error(e);location.replace("driver.html")}
 });
 
-$("driverLogoutBtn").onclick=async()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);try{await remove(ref(db,"sessions/"+uid))}catch(e){}await signOut(auth);location.replace("driver.html")};
+$("driverLogoutBtn").onclick=async()=>{
+  if(watchId!==null)navigator.geolocation.clearWatch(watchId);
+  if(window.AndroidBridge){try{window.AndroidBridge.stopTracking()}catch(e){}}
+  try{await remove(ref(db,"sessions/"+uid))}catch(e){}
+  await signOut(auth);
+  location.replace("driver.html");
+};
 
 function selectPoint(lat,lng){orderLat=lat;orderLng=lng;localStorage.setItem("orderLat",lat);localStorage.setItem("orderLng",lng);if(orderMarker)orderMarker.setLatLng([lat,lng]);else orderMarker=L.marker([lat,lng]).addTo(orderMap);$("selectedLocation").textContent="تم تحديد الموقع: "+lat.toFixed(5)+", "+lng.toFixed(5);orderMap.panTo([lat,lng]);saveLive()}
 function initOrderMap(){if(orderMap)return;orderMap=L.map("orderMap").setView([30.50,47.78],12);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(orderMap);orderMap.on("click",e=>selectPoint(e.latlng.lat,e.latlng.lng));if(orderLat&&orderLng)selectPoint(orderLat,orderLng)}
@@ -96,11 +113,41 @@ start.onclick=()=>{
   if(!authReady||!uid)return alert("انتظر لحظة حتى يكتمل تسجيل الدخول");
   if(locationMode==="map"&&order.value.trim()&&(!orderLat||!orderLng))return alert("حدد مكان الطلب على الخريطة");
   if(!navigator.geolocation)return alert("الجهاز لا يدعم تحديد الموقع");
-  saveLocal();const driverRef=ref(db,"drivers/"+uid);onDisconnect(driverRef).update({online:false,shift:false,updatedAt:Date.now()});start.disabled=true;stop.disabled=false;setShiftStatus("جاري تحديد الموقع...");
-  watchId=navigator.geolocation.watchPosition(async p=>{const now=Date.now(),d={id:uid,...values(),lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),speed:p.coords.speed||0,heading:p.coords.heading||0,online:true,shift:true,updatedAt:now};await set(driverRef,d);setShiftStatus("في الدوام — التتبع يعمل",true);$("lastUpdate").textContent=new Date(now).toLocaleTimeString("ar-IQ");$("coords").textContent=`الموقع: ${d.lat.toFixed(6)}, ${d.lng.toFixed(6)}`},e=>{setShiftStatus("تعذر الحصول على الموقع");alert("اسمح باستخدام الموقع ثم حاول مجددًا. "+e.message);start.disabled=false;stop.disabled=true},{enableHighAccuracy:true,maximumAge:3000,timeout:15000});
+  saveLocal();
+  const driverRef=ref(db,"drivers/"+uid);
+  const nativeTracking=!!window.AndroidBridge;
+  if(nativeTracking){
+    try{
+      await remove(driverRef);
+      window.AndroidBridge.startTracking(code,name.value.trim(),phone.value.trim(),JSON.stringify({...values(),code}));
+    }catch(e){}
+  }else{
+    onDisconnect(driverRef).update({online:false,shift:false,updatedAt:Date.now()});
+  }
+  start.disabled=true;stop.disabled=false;
+  setShiftStatus(nativeTracking?"في الدوام — التتبع بالخلفية يعمل":"جاري تحديد الموقع...",nativeTracking);
+  watchId=navigator.geolocation.watchPosition(async p=>{
+    const now=Date.now(),d={id:uid,code,...values(),lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),speed:p.coords.speed||0,heading:p.coords.heading||0,online:true,shift:true,updatedAt:now};
+    if(!nativeTracking)await set(driverRef,d);
+    setShiftStatus(nativeTracking?"في الدوام — يعمل حتى مع قفل الشاشة":"في الدوام — التتبع يعمل",true);
+    $("lastUpdate").textContent=new Date(now).toLocaleTimeString("ar-IQ");
+    $("coords").textContent=`الموقع: ${d.lat.toFixed(6)}, ${d.lng.toFixed(6)}`;
+  },e=>{
+    if(!nativeTracking){
+      setShiftStatus("تعذر الحصول على الموقع");alert("اسمح باستخدام الموقع ثم حاول مجددًا. "+e.message);start.disabled=false;stop.disabled=true;
+    }
+  },{enableHighAccuracy:true,maximumAge:3000,timeout:15000});
 };
 [order,place].forEach(el=>el.onchange=saveLive);
-stop.onclick=async()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;await update(ref(db,"drivers/"+uid),{...values(),online:false,shift:false,updatedAt:Date.now()});setShiftStatus("خارج الدوام");start.disabled=false;stop.disabled=true};
+stop.onclick=async()=>{
+  if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;
+  if(window.AndroidBridge){
+    try{window.AndroidBridge.updateMeta(JSON.stringify({...values(),code}));window.AndroidBridge.stopTracking()}catch(e){}
+  }else{
+    await update(ref(db,"drivers/"+uid),{...values(),code,online:false,shift:false,updatedAt:Date.now()});
+  }
+  setShiftStatus("خارج الدوام");start.disabled=false;stop.disabled=true;
+};
 setInterval(()=>{if(!deliveryStartedAt||orderStatus==="delivered"){deliveryTimer.textContent="—";return}deliveryTimer.textContent=Math.floor((Date.now()-deliveryStartedAt)/60000)+" دقيقة"},1000);
 </script>
 </body>
