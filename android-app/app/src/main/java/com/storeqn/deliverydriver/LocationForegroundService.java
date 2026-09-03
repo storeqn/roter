@@ -67,7 +67,7 @@ public class LocationForegroundService extends Service implements LocationListen
     }
 
     private void restore(){
-        var p=getSharedPreferences("tracker",MODE_PRIVATE);
+        android.content.SharedPreferences p=getSharedPreferences("tracker",MODE_PRIVATE);
         code=p.getString("code",""); name=p.getString("name",""); phone=p.getString("phone",""); meta=p.getString("meta","{}");
     }
 
