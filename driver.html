@@ -14,7 +14,7 @@
   <section class="login-card">
     <div class="login-icon">🛵</div><h1>دخول الدلفري</h1><p class="muted">أدخل الكود الذي أعطاك إياه صاحب المطعم.</p>
     <input id="driverCode" type="password" inputmode="text" placeholder="كود الدلفري">
-    <button id="driverLoginBtn" class="btn btn-primary full" disabled>دخول</button>
+    <button id="driverLoginBtn" class="btn btn-primary full">دخول</button>
     <div id="driverLoginMsg" class="login-msg">جاري تجهيز الدخول...</div>
   </section>
 </div>
@@ -109,7 +109,18 @@ function withTimeout(promise,ms=8000){
 async function loginDriver(){
   const code=$("driverCode").value.trim();
   if(!code)return $("driverLoginMsg").textContent="اكتب كود الدلفري";
-  if(!uid)return $("driverLoginMsg").textContent="انتظر لحظة حتى يكتمل الاتصال";
+  if(!uid){
+    $("driverLoginMsg").textContent="جاري تسجيل الدخول...";
+    try{
+      const cred=await withTimeout(signInAnonymously(auth),8000);
+      uid=cred.user.uid;
+    }catch(e){
+      console.error("anonymous auth",e);
+      $("driverLoginMsg").textContent="تعذر الاتصال بـ Firebase";
+      $("driverLoginBtn").disabled=false;
+      return;
+    }
+  }
   $("driverLoginBtn").disabled=true;
   $("driverLoginMsg").textContent="جاري التحقق...";
   try{
@@ -144,8 +155,8 @@ $("driverLogoutBtn").onclick=async()=>{if(watchId!==null)navigator.geolocation.c
 
 onAuthStateChanged(auth,async user=>{
   if(!user){
-    $("driverLoginMsg").textContent="جاري تسجيل الدخول...";
-    try{await signInAnonymously(auth)}catch(e){console.error(e);$("driverLoginMsg").textContent="تعذر تسجيل الدخول إلى Firebase"}
+    $("driverLoginMsg").textContent="";
+    $("driverLoginBtn").disabled=false;
     return;
   }
   uid=user.uid;
