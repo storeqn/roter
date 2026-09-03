@@ -2,29 +2,38 @@ name: Generate Web App Icons
 permissions:
   contents: write
 on:
+  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
       - 'yasri-delivery-logo.svg'
       - '.github/workflows/generate-web-icons.yml'
-  workflow_dispatch:
+
 jobs:
   icons:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Generate PNG icons
+      - name: Build PNG icons from embedded Yasri logo
         run: |
           sudo apt-get update
-          sudo apt-get install -y librsvg2-bin
-          rsvg-convert yasri-delivery-logo.svg -w 180 -h 180 -o admin-icon-180.png
-          rsvg-convert yasri-delivery-logo.svg -w 192 -h 192 -o admin-icon-192.png
-          rsvg-convert yasri-delivery-logo.svg -w 512 -h 512 -o admin-icon-512.png
+          sudo apt-get install -y imagemagick
+          python3 - <<'PY'
+          import re, base64
+          s=open('yasri-delivery-logo.svg','r',encoding='utf-8').read()
+          m=re.search(r'data:image/jpeg;base64,([^"]+)', s)
+          if not m:
+              raise SystemExit('embedded JPEG not found')
+          open('/tmp/yasri-logo.jpg','wb').write(base64.b64decode(m.group(1)))
+          PY
+          convert /tmp/yasri-logo.jpg -resize 180x180! admin-icon-180.png
+          convert /tmp/yasri-logo.jpg -resize 192x192! admin-icon-192.png
+          convert /tmp/yasri-logo.jpg -resize 512x512! admin-icon-512.png
       - name: Commit icons
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin-icon-180.png admin-icon-192.png admin-icon-512.png
-          git diff --cached --quiet || git commit -m "Generate admin web app icons"
+          git diff --cached --quiet || git commit -m "Update Yasri admin app icons"
           git pull --rebase origin main
           git push origin main
