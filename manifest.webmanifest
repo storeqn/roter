@@ -1,5 +1,5 @@
 {
-  "id": "./driver-pwa-v1",
+  "id": "./driver-pwa-v2",
   "name": "مطعم الياسري - التوصيل دلفري",
   "short_name": "الياسري دلفري",
   "start_url": "./driver.html",
@@ -10,7 +10,17 @@
   "lang": "ar",
   "dir": "rtl",
   "icons": [
-    {"src":"yasri-delivery-logo.svg?v=9","sizes":"any","type":"image/svg+xml","purpose":"any maskable"},
-    {"src":"admin-icon-180.png?v=9","sizes":"180x180","type":"image/png","purpose":"any"}
+    {
+      "src": "admin-icon-192.png?v=15",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "admin-icon-512.png?v=15",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
