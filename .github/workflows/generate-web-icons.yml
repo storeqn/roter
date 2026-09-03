@@ -14,19 +14,37 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Generate real Yasri PNG icons
+      - name: Extract real Yasri logo and generate PNG icons
         run: |
           sudo apt-get update
-          sudo apt-get install -y librsvg2-bin
-          rsvg-convert yasri-delivery-logo.svg -w 180 -h 180 -o admin-icon-180.png
-          rsvg-convert yasri-delivery-logo.svg -w 192 -h 192 -o admin-icon-192.png
-          rsvg-convert yasri-delivery-logo.svg -w 512 -h 512 -o admin-icon-512.png
-          file admin-icon-180.png admin-icon-192.png admin-icon-512.png
+          sudo apt-get install -y imagemagick
+          python3 - <<'PY'
+          import re,base64
+          s=open('yasri-delivery-logo.svg','r',encoding='utf-8').read()
+          m=re.search(r'data:image/(?:jpeg|jpg);base64,([^"]+)',s,re.I)
+          if not m:
+              raise SystemExit('embedded Yasri JPEG not found')
+          b=''.join(m.group(1).split())
+          b += '=' * (-len(b) % 4)
+          raw=base64.b64decode(b,validate=False)
+          if len(raw)<5000:
+              raise SystemExit('embedded image unexpectedly small')
+          open('/tmp/yasri.jpg','wb').write(raw)
+          print('jpeg bytes',len(raw))
+          PY
+          identify /tmp/yasri.jpg
+          convert /tmp/yasri.jpg -resize 180x180! admin-icon-180.png
+          convert /tmp/yasri.jpg -resize 192x192! admin-icon-192.png
+          convert /tmp/yasri.jpg -resize 512x512! admin-icon-512.png
+          identify admin-icon-180.png admin-icon-192.png admin-icon-512.png
+          test $(stat -c%s admin-icon-180.png) -gt 5000
+          test $(stat -c%s admin-icon-192.png) -gt 5000
+          test $(stat -c%s admin-icon-512.png) -gt 20000
       - name: Commit icons
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin-icon-180.png admin-icon-192.png admin-icon-512.png
-          git diff --cached --quiet || git commit -m "Regenerate Yasri web app icons"
+          git diff --cached --quiet || git commit -m "Fix Yasri web app icons from embedded image"
           git pull --rebase origin main
           git push origin main
