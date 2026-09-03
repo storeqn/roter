@@ -20,25 +20,6 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Prepare Yasri app icon
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y imagemagick
-          mkdir -p android-app/app/src/main/res/mipmap-mdpi
-          mkdir -p android-app/app/src/main/res/mipmap-hdpi
-          mkdir -p android-app/app/src/main/res/mipmap-xhdpi
-          mkdir -p android-app/app/src/main/res/mipmap-xxhdpi
-          mkdir -p android-app/app/src/main/res/mipmap-xxxhdpi
-          convert admin-icon-180.png -resize 48x48! android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          convert admin-icon-180.png -resize 72x72! android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          convert admin-icon-180.png -resize 96x96! android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          convert admin-icon-180.png -resize 144x144! android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          convert admin-icon-180.png -resize 192x192! android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-          cp android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png android-app/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
-          cp android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png android-app/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
-          cp android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png android-app/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
-          cp android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
-          cp android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
       - name: Build debug APK
         working-directory: android-app
         run: gradle assembleDebug
