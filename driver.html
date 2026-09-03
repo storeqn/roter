@@ -60,6 +60,30 @@ function values(){return{name:name.value.trim(),phone:phone.value.trim(),orderId
 function saveLocal(){localStorage.setItem("orderId",order.value.trim());localStorage.setItem("orderLocation",place.value.trim());localStorage.setItem("orderStatus",orderStatus);if(deliveryStartedAt)localStorage.setItem("deliveryStartedAt",deliveryStartedAt);else localStorage.removeItem("deliveryStartedAt")}
 async function saveLive(){saveLocal();if(watchId!==null)await update(ref(db,"drivers/"+uid),{...values(),updatedAt:Date.now()})}
 
+function openDriverAccess(code,v){
+  access={...v,code};
+  name.value=v.name||"";
+  phone.value=v.phone||"";
+  $("identityName").textContent=v.name||"دلفري";
+  $("identityPhone").textContent=v.phone||"";
+  $("driverLogin").hidden=true;
+  $("driverApp").hidden=false;
+  authReady=true;
+  $("driverLoginMsg").textContent="";
+  if(accessUnsub) accessUnsub();
+  accessUnsub=onValue(ref(db,"accessCodes/"+code),snap=>{
+    const latest=snap.val();
+    if(!latest||latest.enabled!==true||latest.role!=="driver"){
+      authReady=false;
+      if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}
+      setShiftStatus("تم إيقاف كود الدخول");
+      alert("تم إيقاف أو حذف كود الدلفري من إدارة المطعم.");
+      location.reload();
+    }
+  });
+  return true;
+}
+
 async function unlockWithSession(){
   try{
     const ss=await get(ref(db,"sessions/"+uid));
@@ -68,31 +92,18 @@ async function unlockWithSession(){
     const cs=await get(ref(db,"accessCodes/"+code));
     const v=cs.val();
     if(!(v&&v.enabled===true&&v.role==="driver"))return false;
-    access={...v,code};
-    name.value=v.name||"";
-    phone.value=v.phone||"";
-    $("identityName").textContent=v.name||"دلفري";
-    $("identityPhone").textContent=v.phone||"";
-    $("driverLogin").hidden=true;
-    $("driverApp").hidden=false;
-    authReady=true;
-
-    if(accessUnsub) accessUnsub();
-    accessUnsub=onValue(ref(db,"accessCodes/"+code),snap=>{
-      const latest=snap.val();
-      if(!latest||latest.enabled!==true||latest.role!=="driver"){
-        authReady=false;
-        if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}
-        setShiftStatus("تم إيقاف كود الدخول");
-        alert("تم إيقاف أو حذف كود الدلفري من إدارة المطعم.");
-        location.reload();
-      }
-    });
-    return true;
+    return openDriverAccess(code,v);
   }catch(e){
     console.error("unlockWithSession",e);
     return false;
   }
+}
+
+function withTimeout(promise,ms=8000){
+  return Promise.race([
+    promise,
+    new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),ms))
+  ]);
 }
 
 async function loginDriver(){
@@ -102,21 +113,30 @@ async function loginDriver(){
   $("driverLoginBtn").disabled=true;
   $("driverLoginMsg").textContent="جاري التحقق...";
   try{
-    const codeSnap=await get(ref(db,"accessCodes/"+code));
+    const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)));
     const codeData=codeSnap.val();
+
     if(!(codeData&&codeData.enabled===true&&codeData.role==="driver")){
-      $("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
+      $("driverLoginMsg").textContent="الكود  "+code+"  غير صحيح أو متوقف";
       return;
     }
-    await set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()});
-    if(await unlockWithSession())return;
-    $("driverLoginMsg").textContent="تعذر فتح الحساب، حاول مرة أخرى";
+
+    await withTimeout(set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()}));
+    openDriverAccess(code,codeData);
   }catch(e){
     console.error("loginDriver",e);
-    $("driverLoginMsg").textContent=e?.code==="PERMISSION_DENIED"?"يجب تحديث قواعد Firebase مرة واحدة":"تعذر التحقق من الكود";
+    const raw=String(e?.code||e?.message||"");
+    if(raw.includes("PERMISSION_DENIED")||raw.includes("permission-denied")){
+      $("driverLoginMsg").textContent="Firebase رفض الدخول — تحقق من قواعد Rules";
+    }else if(raw.includes("timeout")){
+      $("driverLoginMsg").textContent="انتهت مهلة الاتصال. أعد المحاولة.";
+    }else{
+      $("driverLoginMsg").textContent="تعذر التحقق من الكود. أعد المحاولة.";
+    }
   }finally{
-    if(!$("driverApp").hidden===false)return;
-    $("driverLoginBtn").disabled=false;
+    if($("driverApp").hidden){
+      $("driverLoginBtn").disabled=false;
+    }
   }
 }
 $("driverLoginBtn").onclick=loginDriver;$("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")loginDriver()});
