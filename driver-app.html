@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest?v=21">
 <link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=21">
 <link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=21">
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>تطبيق الدلفري</title>
 <style>
@@ -120,10 +120,22 @@ import { firebaseConfig } from "./firebase-config.js";
 
 const $=id=>document.getElementById(id), app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
 const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),orderAmount=$("orderAmount"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),returnBtn=$("returnBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer"),cashWithDriver=$("cashWithDriver");
-let uid=null,code=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null,trackingStarted=false,cashCollected=Number(localStorage.getItem("cashCollected")||0)||0;
+let uid=null,code=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null,trackingStarted=false,cashCollected=0;
 let orderLat=null,orderLng=null,locationMode="text",paymentMode="cash",returningToRestaurant=false;
 let activeOrders=[];
-try{activeOrders=JSON.parse(localStorage.getItem("activeOrders")||"[]");if(!Array.isArray(activeOrders))activeOrders=[]}catch(e){activeOrders=[]}
+function storageKey(base){return code?base+"_"+code:null}
+function loadLocalForDriver(){
+  activeOrders=[];cashCollected=0;
+  try{
+    const k=storageKey("activeOrders");
+    const ck=storageKey("cashCollected");
+    if(k){const v=JSON.parse(localStorage.getItem(k)||"[]");if(Array.isArray(v))activeOrders=v}
+    if(ck)cashCollected=Number(localStorage.getItem(ck)||0)||0;
+  }catch(e){activeOrders=[];cashCollected=0}
+  // remove old shared keys so orders can no longer leak between drivers
+  localStorage.removeItem("activeOrders");
+  localStorage.removeItem("cashCollected");
+}
 
 function driverState(){
   if(!authReady||!trackingStarted)return "offline";
@@ -156,7 +168,7 @@ function values(){
     returningToRestaurant
   };
 }
-function saveLocal(){localStorage.setItem("activeOrders",JSON.stringify(activeOrders));localStorage.setItem("cashCollected",String(cashCollected));if(cashWithDriver)cashWithDriver.textContent=cashCollected.toLocaleString("ar-IQ")+" د.ع"}
+function saveLocal(){const k=storageKey("activeOrders"),ck=storageKey("cashCollected");if(k)localStorage.setItem(k,JSON.stringify(activeOrders));if(ck)localStorage.setItem(ck,String(cashCollected));if(cashWithDriver)cashWithDriver.textContent=cashCollected.toLocaleString("ar-IQ")+" د.ع"}
 async function saveLive(){
   saveLocal();
   const meta={...values(),code,updatedAt:Date.now()};
@@ -247,6 +259,13 @@ async function loadAccess(){
   const v=cs.val();
   if(!(v&&v.enabled===true&&v.role==="driver"))return false;
   name.value=v.name||"";phone.value=v.phone||"";$("identityName").textContent=v.name||"دلفري";$("identityPhone").textContent=v.phone||"";
+  loadLocalForDriver();
+  try{
+    const ds=await get(ref(db,"drivers/"+uid));
+    const dv=ds.val();
+    if(dv&&Array.isArray(dv.activeOrders)&&dv.activeOrders.length)activeOrders=dv.activeOrders;
+  }catch(e){}
+  saveLocal();renderActiveOrders();
   authReady=true;
   if(window.AndroidBridge){
     try{window.AndroidBridge.updateMeta(JSON.stringify({...values(),code}))}catch(e){}
@@ -290,7 +309,7 @@ $("myLocationBtn").onclick=()=>navigator.geolocation.getCurrentPosition(p=>selec
 $("addOrderBtn").onclick=addOrder;
 returnBtn.onclick=async()=>{if(activeOrders.length)return alert("أنهِ الطلبات الحالية أولاً");returningToRestaurant=true;returnBtn.disabled=true;refreshAutoState();await saveLive();};
 setMode("text");
-saveLocal();renderActiveOrders();
+renderActiveOrders();
 
 start.onclick=async()=>{
   if(!authReady||!uid)return alert("انتظر لحظة حتى يكتمل تسجيل الدخول");
