@@ -1,0 +1,36 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "accessCodes": {
+      ".read": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
+      ".write": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
+      "$code": {
+        ".read": "auth != null && (root.child('sessions').child(auth.uid).child('code').val() === $code || root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin')"
+      }
+    },
+
+    "sessions": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid && (!newData.exists() || (newData.child('code').isString() && root.child('accessCodes').child(newData.child('code').val()).child('enabled').val() === true))"
+      }
+    },
+
+    "drivers": {
+      ".read": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
+      "$uid": {
+        ".read": "auth != null && ($uid === auth.uid || root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin')",
+        ".write": "auth != null && ((auth.uid === $uid && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'driver' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true) || root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin')"
+      }
+    },
+
+    "deliveryHistory": {
+      ".read": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'driver' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true"
+      }
+    }
+  }
+}
