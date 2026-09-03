@@ -12,6 +12,7 @@
 <main class="container">
 <header class="dashboard-head">
   <div><h1>لوحة المطعم 🛵</h1><div class="muted"><span class="presence online"></span> متابعة الدلفرين مباشرة</div></div>
+  <button id="logoutBtn" class="btn btn-dark">تسجيل الخروج</button>
 </header>
 
 <div class="summary-grid">
@@ -46,8 +47,15 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig, firebaseReady } from "./firebase-config.js";
+
+const ADMIN_EMAIL = "restaurant-admin@delivery-tracker.local";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+let authReady = false;
+document.getElementById("logoutBtn").onclick = async () => { await signOut(auth); location.replace("./"); };
 
 const map = L.map("map",{zoomControl:true}).setView([30.50,47.78],12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
@@ -230,18 +238,34 @@ document.getElementById("refreshBtn").onclick = () => { map.invalidateSize(); re
 if (!firebaseReady) {
   document.getElementById("setupWarning").hidden = false;
 } else {
-  db = getDatabase(initializeApp(firebaseConfig));
-  onValue(ref(db,"drivers"), snap => {
-    dataEntries = Object.entries(snap.val()||{});
-    renderDrivers();
-  });
-  onValue(ref(db,"deliveryHistory"), snap => {
-    historyEntries = Object.entries(snap.val()||{});
-    renderHistory();
+  onAuthStateChanged(auth, user => {
+    if (!user || user.email !== ADMIN_EMAIL) {
+      location.replace("./");
+      return;
+    }
+    if (authReady) return;
+    authReady = true;
+    db = getDatabase(app);
+    onValue(ref(db,"drivers"), snap => {
+      dataEntries = Object.entries(snap.val()||{});
+      renderDrivers();
+    });
+    onValue(ref(db,"deliveryHistory"), snap => {
+      const raw = snap.val() || {};
+      historyEntries = [];
+      Object.entries(raw).forEach(([k,v]) => {
+        if (v && typeof v==="object" && !("deliveredAt" in v)) {
+          Object.entries(v).forEach(([subId,item]) => historyEntries.push([k+"_"+subId,item]));
+        } else {
+          historyEntries.push([k,v]);
+        }
+      });
+      renderHistory();
+    });
   });
 }
 
-setInterval(renderDrivers,15000);
+setInterval(() => { if(authReady) renderDrivers(); },15000);
 </script>
 </body>
 </html>
