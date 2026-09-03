@@ -1,169 +1,47 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#0f172a">
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-  <title>لوحة متابعة الدلفري</title>
-</head>
-<body>
-<main class="container">
-  <div class="topbar">
-    <div>
-      <div class="badge">لوحة الإدارة</div>
-      <h1>متابعة الدلفري 📍</h1>
-      <div class="muted">مواقع السائقين مباشرة في مكان واحد</div>
-    </div>
-    <a href="driver.html" class="btn btn-dark">فتح صفحة الدلفري</a>
-  </div>
-
-  <div class="summary-grid">
-    <div class="summary-card"><span>🟢 في الدوام</span><strong id="onlineCount">0</strong></div>
-    <div class="summary-card"><span>⚪ خارج الدوام</span><strong id="offlineCount">0</strong></div>
-    <div class="summary-card"><span>🛵 إجمالي الدلفري</span><strong id="totalCount">0</strong></div>
-  </div>
-
-  <section class="card">
-    <div id="setupWarning" class="warning" hidden>لم يتم ربط Firebase بعد.</div>
-    <div id="map"></div>
-
-    <div class="section-title">
-      <h2>الدلفريات</h2>
-      <button id="fitAllBtn" class="btn btn-dark btn-small">عرض الجميع على الخريطة</button>
-    </div>
-
-    <div id="driverList" class="driver-list"></div>
-  </section>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111f"><link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><title>لوحة المطعم</title>
+</head><body><main class="container">
+<header class="dashboard-head"><div><h1>لوحة المطعم 🛵</h1><div class="muted"><span class="presence online"></span> متابعة الدلفرين مباشرة</div></div></header>
+<div class="summary-grid"><div class="summary-card"><span>👤 الإجمالي</span><strong id="totalCount">0</strong></div><div class="summary-card"><span>🟠 خارج الدوام</span><strong id="offlineCount">0</strong></div><div class="summary-card"><span>🟢 في الدوام</span><strong id="onlineCount">0</strong></div></div>
+<section class="map-card"><div id="setupWarning" class="warning" hidden>لم يتم ربط Firebase بعد.</div><div id="map"></div></section>
+<section class="drivers-panel"><div class="toolbar"><input id="searchDriver" placeholder="بحث عن دلفري..."><button id="fitAllBtn" class="btn btn-primary">🗺️ عرض الجميع على الخريطة</button><button id="refreshBtn" class="btn btn-dark">↻ تحديث</button></div><h2>الدلفريات</h2><div id="driverList" class="driver-list"></div></section>
+<div class="muted small auto-note">تتحدث المواقع تلقائياً أثناء عمل التتبع</div>
 </main>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig, firebaseReady } from "./firebase-config.js";
-
-const map = L.map("map").setView([30.50, 47.78], 10);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-  maxZoom: 19,
-  attribution: "&copy; OpenStreetMap"
-}).addTo(map);
-
-const list = document.getElementById("driverList");
-const onlineCount = document.getElementById("onlineCount");
-const offlineCount = document.getElementById("offlineCount");
-const totalCount = document.getElementById("totalCount");
-const fitAllBtn = document.getElementById("fitAllBtn");
-const markers = {};
-let currentActivePoints = [];
-let firstFit = true;
-
-function markerIcon(name, active) {
-  return L.divIcon({
-    className: "driver-marker-wrap",
-    html: `<div class="driver-marker ${active ? "active" : "inactive"}"><span>🛵</span><b>${name || "دلفري"}</b></div>`,
-    iconSize: [110,44],
-    iconAnchor: [55,38]
-  });
-}
-
-function focusDriver(id) {
-  const marker = markers[id];
-  if (!marker) return;
-  map.setView(marker.getLatLng(), 17, {animate:true});
-  marker.openPopup();
-}
-
-fitAllBtn.addEventListener("click", () => {
-  if (currentActivePoints.length) {
-    map.fitBounds(currentActivePoints, {padding:[45,45], maxZoom:16});
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import {getDatabase,ref,onValue} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import {firebaseConfig,firebaseReady} from "./firebase-config.js";
+const map=L.map("map",{zoomControl:true}).setView([30.50,47.78],12);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
+const list=document.getElementById("driverList"), search=document.getElementById("searchDriver");
+const markers={}; let points=[],dataEntries=[],firstFit=true;
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function icon(d,active){return L.divIcon({className:"scooter-icon-wrap",html:`<div class="scooter-pin ${active?"on":"off"}"><span>🛵</span></div>`,iconSize:[52,52],iconAnchor:[26,26]})}
+function active(d){return !!(d.online&&d.shift&&Date.now()-(d.updatedAt||0)<90000&&typeof d.lat==="number"&&typeof d.lng==="number")}
+function focus(id){if(markers[id]){map.setView(markers[id].getLatLng(),17,{animate:true});markers[id].openPopup()}}
+function render(){
+ const q=search.value.trim().toLowerCase(); list.innerHTML=""; let on=0; points=[];
+ dataEntries.sort((a,b)=>Number(active(b[1]))-Number(active(a[1]))||(b[1].updatedAt||0)-(a[1].updatedAt||0));
+ dataEntries.forEach(([id,d])=>{
+  const a=active(d),has=typeof d.lat==="number"&&typeof d.lng==="number"; if(a)on++;
+  if(has){if(!markers[id])markers[id]=L.marker([d.lat,d.lng],{icon:icon(d,a)}).addTo(map);else{markers[id].setLatLng([d.lat,d.lng]);markers[id].setIcon(icon(d,a))}
+   markers[id].bindTooltip(esc(d.name||"دلفري"),{permanent:true,direction:"top",className:"driver-name-label",offset:[0,-23]});
+   markers[id].bindPopup(`<div dir="rtl" class="map-popup"><b>${esc(d.name||"دلفري")}</b><br>📞 ${esc(d.phone||"لا يوجد رقم")}<br>📦 الطلب: ${esc(d.orderId||"لا يوجد")}<br>📍 ${esc(d.orderLocation||"غير محدد")}<br>${a?"🟢 في الدوام":"⚪ خارج الدوام"}</div>`);
+   if(a)points.push([d.lat,d.lng]);
   }
-});
-
-if (!firebaseReady) {
-  document.getElementById("setupWarning").hidden = false;
-  list.innerHTML = '<div class="driver-item">أكمل ربط Firebase أولاً حتى تظهر المواقع المباشرة.</div>';
-} else {
-  const db = getDatabase(initializeApp(firebaseConfig));
-
-  onValue(ref(db, "drivers"), snap => {
-    const drivers = snap.val() || {};
-    const entries = Object.entries(drivers);
-    list.innerHTML = "";
-    currentActivePoints = [];
-
-    let online = 0;
-
-    entries.sort((a,b) => {
-      const A = a[1], B = b[1];
-      const aActive = !!(A.online && A.shift && Date.now()-(A.updatedAt||0)<90000);
-      const bActive = !!(B.online && B.shift && Date.now()-(B.updatedAt||0)<90000);
-      if (aActive !== bActive) return aActive ? -1 : 1;
-      return (B.updatedAt||0) - (A.updatedAt||0);
-    });
-
-    entries.forEach(([id,d]) => {
-      const age = Date.now() - (d.updatedAt || 0);
-      const hasLocation = typeof d.lat==="number" && typeof d.lng==="number";
-      const active = !!(d.online && d.shift && age < 90000 && hasLocation);
-      if (active) online++;
-
-      const item = document.createElement("div");
-      item.className = "driver-item driver-row";
-      item.innerHTML = `
-        <div class="driver-main">
-          <div class="driver-title">
-            <span class="presence ${active ? "online" : "offline"}"></span>
-            <strong>${d.name || "دلفري"}</strong>
-          </div>
-          <div class="driver-meta">
-            <span>الطلب: <b>${d.orderId || "لا يوجد"}</b></span>
-            <span>${active ? "متصل الآن" : "خارج الدوام"}</span>
-          </div>
-          <div class="small muted">آخر تحديث: ${d.updatedAt ? new Date(d.updatedAt).toLocaleString("ar-IQ") : "—"}</div>
-        </div>
-        <button class="btn btn-dark btn-small focus-btn" ${hasLocation ? "" : "disabled"}>عرض الموقع</button>
-      `;
-
-      item.querySelector(".focus-btn").addEventListener("click", () => focusDriver(id));
-      list.appendChild(item);
-
-      if (hasLocation) {
-        if (!markers[id]) {
-          markers[id] = L.marker([d.lat,d.lng], {icon:markerIcon(d.name, active)}).addTo(map);
-        } else {
-          markers[id].setLatLng([d.lat,d.lng]);
-          markers[id].setIcon(markerIcon(d.name, active));
-        }
-
-        markers[id].bindPopup(`
-          <div dir="rtl" style="min-width:150px">
-            <b>${d.name || "دلفري"}</b><br>
-            الحالة: ${active ? "في الدوام" : "خارج الدوام"}<br>
-            الطلب: ${d.orderId || "لا يوجد"}<br>
-            آخر تحديث: ${d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString("ar-IQ") : "—"}
-          </div>
-        `);
-
-        if (active) currentActivePoints.push([d.lat,d.lng]);
-      }
-    });
-
-    onlineCount.textContent = online;
-    offlineCount.textContent = Math.max(entries.length - online, 0);
-    totalCount.textContent = entries.length;
-
-    if (!entries.length) {
-      list.innerHTML = '<div class="driver-item">لا يوجد دلفري مسجل حتى الآن.</div>';
-    }
-
-    if (firstFit && currentActivePoints.length) {
-      map.fitBounds(currentActivePoints, {padding:[45,45], maxZoom:16});
-      firstFit = false;
-    }
-  });
+  if(q&&!String(d.name||"").toLowerCase().includes(q)&&!String(d.phone||"").includes(q)&&!String(d.orderId||"").includes(q))return;
+  const el=document.createElement("div");el.className="driver-item modern-row";el.innerHTML=`<div class="driver-profile"><div class="mini-scooter">🛵</div><div><strong>${esc(d.name||"دلفري")}</strong><div class="connect ${a?"yes":"no"}">${a?"● متصل الآن":"● خارج الدوام"}</div></div></div><div class="info-cell"><span>الحالة</span><b class="${a?"green":""}">${a?"في الدوام":"خارج الدوام"}</b></div><div class="info-cell"><span>رقم الدلفري</span><b>${esc(d.phone||"—")}</b></div><div class="info-cell"><span>رقم الطلب</span><b>${esc(d.orderId||"—")}</b></div><div class="info-cell order-place"><span>مكان الطلب</span><b>${esc(d.orderLocation||"—")}</b></div><div class="info-cell"><span>آخر تحديث</span><b>${d.updatedAt?new Date(d.updatedAt).toLocaleTimeString("ar-IQ"):"—"}</b></div><button class="btn btn-primary focus" ${has?"":"disabled"}>عرض الموقع</button>`;el.querySelector(".focus").onclick=()=>focus(id);list.appendChild(el);
+ });
+ document.getElementById("onlineCount").textContent=on;document.getElementById("offlineCount").textContent=Math.max(dataEntries.length-on,0);document.getElementById("totalCount").textContent=dataEntries.length;
+ if(!list.children.length)list.innerHTML='<div class="driver-item">لا توجد نتائج.</div>';
+ if(firstFit&&points.length){map.fitBounds(points,{padding:[50,50],maxZoom:16});firstFit=false}
 }
-</script>
-</body>
-</html>
+search.oninput=render; document.getElementById("fitAllBtn").onclick=()=>points.length&&map.fitBounds(points,{padding:[50,50],maxZoom:16});
+document.getElementById("refreshBtn").onclick=()=>{map.invalidateSize();render()};
+if(!firebaseReady){document.getElementById("setupWarning").hidden=false}else{const db=getDatabase(initializeApp(firebaseConfig));onValue(ref(db,"drivers"),s=>{dataEntries=Object.entries(s.val()||{});render()})}
+</script></body></html>
