@@ -6,7 +6,6 @@ import android.content.*;
 import android.content.pm.PackageManager;
 import android.location.*;
 import android.os.IBinder;
-import androidx.annotation.Nullable;
 import org.json.JSONObject;
 import java.io.*;
 import java.net.*;
@@ -194,7 +193,7 @@ public class LocationForegroundService extends Service implements LocationListen
         ((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).notify(NOTIFY_ID,notification(text));
     }
 
-    @Nullable @Override public IBinder onBind(Intent intent){return null;}
+    @Override public IBinder onBind(Intent intent){return null;}
     @Override public void onProviderEnabled(String p){}
     @Override public void onProviderDisabled(String p){}
     @Override public void onStatusChanged(String p,int s,android.os.Bundle b){}
