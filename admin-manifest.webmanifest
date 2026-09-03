@@ -10,9 +10,9 @@
   "dir": "rtl",
   "icons": [
     {
-      "src": "admin-icon-yasri.png?v=5",
-      "sizes": "96x96",
-      "type": "image/png",
+      "src": "yasri-delivery-logo.svg?v=6",
+      "sizes": "256x256",
+      "type": "image/svg+xml",
       "purpose": "any"
     }
   ]
