@@ -1,10 +1,19 @@
 {
-  "name":"نظام تتبع الدلفري",
-  "short_name":"الدلفري",
-  "start_url":"./",
-  "display":"standalone",
-  "background_color":"#0b1220",
-  "theme_color":"#0f172a",
-  "lang":"ar",
-  "dir":"rtl"
+  "name": "مطعم الياسري - التوصيل دلفري",
+  "short_name": "الياسري دلفري",
+  "start_url": "./driver.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "yasri-delivery-logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
