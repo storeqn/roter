@@ -6,7 +6,7 @@ body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;b
 .card,.drivers-panel,.map-card{background:rgba(13,25,43,.96);border:1px solid var(--line);border-radius:20px;padding:18px;box-shadow:0 16px 40px rgba(0,0,0,.2)}
 h1,h2,p{margin-top:0}.dashboard-head{display:flex;justify-content:space-between;align-items:center;margin:5px 0 18px}
 .muted{color:var(--muted)}.small{font-size:13px}
-.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.summary-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:16px}
 .summary-card{background:#101d31;border:1px solid #1b2a42;border-radius:16px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center}
 .summary-card strong{font-size:27px}
 .map-card{padding:14px;margin-bottom:16px}#map{height:58vh;min-height:480px;border-radius:16px;overflow:hidden;background:#0a1424}
@@ -41,7 +41,7 @@ input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #334155;b
 .history-panel{margin-top:16px}.section-line{display:flex;justify-content:space-between;align-items:center;gap:12px}.history-item{display:grid;grid-template-columns:1fr 1.4fr .8fr 1.1fr;gap:12px;align-items:center;background:#0b1728;border:1px solid var(--line);padding:13px;border-radius:14px}.history-item>div{display:flex;flex-direction:column;gap:4px}
 
 @media(max-width:800px){
-.container{padding:10px}.summary-grid{gap:7px}.summary-card{padding:10px;flex-direction:column}.summary-card strong{font-size:22px}
+.container{padding:10px}.summary-grid{grid-template-columns:repeat(2,1fr);gap:7px}.summary-card{padding:10px;flex-direction:column}.summary-card strong{font-size:22px}
 #map{height:55vh;min-height:410px}.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}
 .modern-row{grid-template-columns:1fr 1fr}.driver-profile,.order-place,.driver-actions{grid-column:1/-1}.driver-actions{grid-template-columns:1fr 1fr}
 .drivers-panel,.map-card{padding:10px}.grid{grid-template-columns:1fr}.status-actions{grid-template-columns:1fr 1fr}.history-item{grid-template-columns:1fr 1fr}
