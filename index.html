@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إدارة الدلفري">
-<link rel="manifest" href="admin-manifest.webmanifest?v=8">
-<link rel="apple-touch-icon" sizes="256x256" href="yasri-delivery-logo.svg?v=8">
-<link rel="apple-touch-icon-precomposed" href="yasri-delivery-logo.svg?v=8">
-<link rel="icon" type="image/svg+xml" href="yasri-delivery-logo.svg?v=8">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="manifest" href="admin-manifest.webmanifest?v=9">
+<link rel="apple-touch-icon" sizes="256x256" href="yasri-delivery-logo.svg?v=9">
+<link rel="apple-touch-icon-precomposed" href="yasri-delivery-logo.svg?v=9">
+<link rel="icon" type="image/svg+xml" href="yasri-delivery-logo.svg?v=9">
+<link rel="stylesheet" href="style.css?v=9">
 <title>دخول إدارة المطعم</title>
 </head>
 <body>
@@ -103,6 +103,13 @@ async function login(){
 }
 btn.onclick=login;
 code.addEventListener("keydown",e=>{if(e.key==="Enter")login()});
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js?v=9').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>
