@@ -10,7 +10,7 @@
 <link rel="manifest" href="admin-manifest.webmanifest?v=20">
 <link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=20">
 <link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=20">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>لوحة المطعم</title>
 <link rel="apple-touch-icon-precomposed" href="admin-icon-180.png?v=20">\n<style>
@@ -35,6 +35,8 @@
   <div class="summary-card"><span>👤 الإجمالي</span><strong id="totalCount">0</strong></div>
   <div class="summary-card"><span>🟠 خارج الدوام</span><strong id="offlineCount">0</strong></div>
   <div class="summary-card"><span>🟢 في الدوام</span><strong id="onlineCount">0</strong></div>
+  <div class="summary-card"><span>🛵 قيد التوصيل</span><strong id="activeDeliveryCount">0</strong></div>
+  <div class="summary-card"><span>✅ تم اليوم</span><strong id="todayDeliveredCount">0</strong></div>
 </div>
 
 <section class="map-card"><div id="map"></div></section>
@@ -101,7 +103,8 @@ function activeOrdersHtml(d){
   if(!orders.length)return '<div class="multi-orders-admin"><div class="multi-orders-admin-title">📦 الطلبات الحالية: 0</div><div class="muted small">جاهز لاستلام طلب جديد</div></div>';
   return '<div class="multi-orders-admin"><div class="multi-orders-admin-title">📦 الطلبات الحالية: '+orders.length+'</div><div class="multi-orders-admin-list">'+orders.map(o=>{
     const route=o.status==="on_route", mins=o.deliveryStartedAt?Math.max(0,Math.floor((Date.now()-o.deliveryStartedAt)/60000)):null,link=mapsUrlOrder(o);
-    return '<div class="multi-order-admin-row"><b>#'+esc(o.orderId||"—")+'</b><span class="order-address">'+esc(o.orderLocation||(o.orderLocationMode==="map"?"محدد على الخريطة":"—"))+'</span><span class="order-state '+(route?"route":"")+'">'+(route?"🛵 جاري التوصيل":"جاهز")+(mins!==null?" · "+mins+" د":"")+'</span>'+(link?'<a class="btn btn-dark" target="_blank" rel="noopener" href="'+esc(link)+'">🗺️ الموقع</a>':'<span></span>')+'</div>';
+    const extras=[o.customerPhone?("📞 "+esc(o.customerPhone)):"",o.notes?("📝 "+esc(o.notes)):""].filter(Boolean).join(" · ");
+    return '<div class="multi-order-admin-row"><b>#'+esc(o.orderId||"—")+'</b><span class="order-address">'+esc(o.orderLocation||(o.orderLocationMode==="map"?"محدد على الخريطة":"—"))+(extras?'<small style="display:block;margin-top:4px;color:#94a3b8">'+extras+'</small>':'')+'</span><span class="order-state '+(route?"route":"")+'">'+(route?"🛵 جاري التوصيل":"جاهز")+(mins!==null?" · "+mins+" د":"")+'</span>'+(link?'<a class="btn btn-dark" target="_blank" rel="noopener" href="'+esc(link)+'">🗺️ الموقع</a>':'<span></span>')+'</div>';
   }).join('')+'</div></div>';
 }
 function scooterIcon(active,late=false){return L.divIcon({className:"scooter-icon-wrap",html:`<div class="scooter-pin ${active?"on":"off"} ${late?"late":""}"><span>🛵</span></div>`,iconSize:[52,52],iconAnchor:[26,26]})}
@@ -142,11 +145,12 @@ async function deleteDriver(id,name,driverData={}){
 }
 
 function renderDrivers(){
-  const q=search.value.trim().toLowerCase(); list.innerHTML=""; points=[]; let online=0;
+  const q=search.value.trim().toLowerCase(); list.innerHTML=""; points=[]; let online=0,activeDeliveryTotal=0;
   dataEntries.sort((a,b)=>Number(isActive(b[1]))-Number(isActive(a[1]))||(b[1].updatedAt||0)-(a[1].updatedAt||0));
   dataEntries.forEach(([id,d])=>{
     const active=isActive(d), hasLocation=typeof d.lat==="number"&&typeof d.lng==="number", hasOrderPoint=typeof d.orderLat==="number"&&typeof d.orderLng==="number", activeOrders=activeOrderList(d);
     const routeOrders=activeOrders.filter(o=>o.status==="on_route"&&o.deliveryStartedAt);
+    activeDeliveryTotal+=routeOrders.length;
     const late=routeOrders.some(o=>Date.now()-o.deliveryStartedAt>45*60000);
     const minutes=routeOrders.length?Math.max(...routeOrders.map(o=>Math.max(0,Math.floor((Date.now()-o.deliveryStartedAt)/60000)))):null;
     if(active)online++;
@@ -165,13 +169,17 @@ function renderDrivers(){
     el.innerHTML=`<div class="driver-profile"><div class="mini-scooter">🛵</div><div><strong>${esc(d.name||"دلفري")}</strong><div class="connect ${active?"yes":"no"}">${active?"● متصل الآن":"● خارج الدوام"}</div></div></div><div class="info-cell"><span>الطلبات الحالية</span><b>${activeOrders.length}</b></div><div class="info-cell"><span>رقم الدلفري</span><b>${esc(d.phone||"—")}</b></div><div class="info-cell"><span>حالة التوصيل</span><b>${routeOrders.length?"🛵 لديه "+routeOrders.length+" قيد التوصيل":activeOrders.length?"جاهز للتوصيل":"جاهز لطلب جديد"}</b></div><div class="info-cell"><span>أطول مدة توصيل</span><b class="${late?"late-text":""}">${minutes!==null?minutes+" دقيقة":"—"}${late?" ⚠️":""}</b></div><div class="driver-actions"><button class="btn btn-primary focus" ${hasLocation?"":"disabled"}>عرض الموقع</button>${d.phone?'<a class="btn btn-dark" href="tel:'+esc(d.phone)+'">📞 اتصال</a>':""}<button class="btn btn-danger delete">حذف</button></div>${activeOrdersHtml(d)}`;
     el.querySelector(".focus").onclick=()=>focusDriver(id);el.querySelector(".delete").onclick=()=>deleteDriver(id,d.name,d);list.appendChild(el);
   });
-  document.getElementById("onlineCount").textContent=online;document.getElementById("offlineCount").textContent=Math.max(dataEntries.length-online,0);document.getElementById("totalCount").textContent=dataEntries.length;
+  document.getElementById("onlineCount").textContent=online;document.getElementById("offlineCount").textContent=Math.max(dataEntries.length-online,0);document.getElementById("totalCount").textContent=dataEntries.length;document.getElementById("activeDeliveryCount").textContent=activeDeliveryTotal;
   if(!list.children.length)list.innerHTML='<div class="driver-item">لا توجد نتائج.</div>';
   if(firstFit&&points.length){map.fitBounds(points,{padding:[50,50],maxZoom:16});firstFit=false}
 }
 
 function renderHistory(){
-  historyList.innerHTML="";const rows=[...historyEntries].sort((a,b)=>(b[1].deliveredAt||0)-(a[1].deliveredAt||0)).slice(0,30);
+  historyList.innerHTML="";
+  const startToday=new Date();startToday.setHours(0,0,0,0);
+  const todayCount=historyEntries.filter(([,h])=>(h?.deliveredAt||0)>=startToday.getTime()).length;
+  document.getElementById("todayDeliveredCount").textContent=todayCount;
+  const rows=[...historyEntries].sort((a,b)=>(b[1].deliveredAt||0)-(a[1].deliveredAt||0)).slice(0,30);
   rows.forEach(([id,h])=>{const mins=h.durationMs?Math.round(h.durationMs/60000):null,el=document.createElement("div");el.className="history-item";el.innerHTML=`<div><strong>${esc(h.name||"دلفري")}</strong><div class="muted small">طلب #${esc(h.orderId||"—")}</div></div><div><span>مكان الطلب</span><b>${esc(h.orderLocation||(h.orderLat?"محدد على الخريطة":"—"))}</b></div><div><span>مدة التوصيل</span><b>${mins!==null?mins+" دقيقة":"—"}</b></div><div><span>وقت التسليم</span><b>${h.deliveredAt?new Date(h.deliveredAt).toLocaleString("ar-IQ"):"—"}</b></div>`;historyList.appendChild(el)});
   if(!rows.length)historyList.innerHTML='<div class="driver-item">لا توجد طلبات مكتملة حتى الآن.</div>';
 }
