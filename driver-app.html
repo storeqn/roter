@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="yasri-delivery-logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="yasri-delivery-logo.svg">
 <link rel="stylesheet" href="style.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>تطبيق الدلفري</title>
@@ -12,7 +14,7 @@
 <body>
 <main class="container narrow">
 <section class="card">
-  <div class="driver-head"><div><div class="badge">تطبيق الدلفري</div><h1>الدوام والتتبع 🛵</h1></div><div id="liveDot" class="live-dot off"></div></div>
+  <div class="driver-head"><div style="display:flex;align-items:center;gap:12px"><img src="yasri-delivery-logo.svg" alt="شعار الياسري" style="width:64px;height:64px;border-radius:16px;object-fit:cover"><div><div class="badge">تطبيق الدلفري</div><h1>الدوام والتتبع 🛵</h1></div></div><div id="liveDot" class="live-dot off"></div></div>
   <div class="driver-identity"><strong id="identityName">—</strong><span id="identityPhone" class="muted">—</span><button id="driverLogoutBtn" class="btn btn-dark">خروج</button></div>
 
   <label>اسم الدلفري</label><input id="driverName" readonly>
