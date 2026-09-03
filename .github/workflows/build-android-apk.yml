@@ -23,17 +23,17 @@ jobs:
       - name: Prepare Yasri app icon
         run: |
           sudo apt-get update
-          sudo apt-get install -y librsvg2-bin
+          sudo apt-get install -y imagemagick
           mkdir -p android-app/app/src/main/res/mipmap-mdpi
           mkdir -p android-app/app/src/main/res/mipmap-hdpi
           mkdir -p android-app/app/src/main/res/mipmap-xhdpi
           mkdir -p android-app/app/src/main/res/mipmap-xxhdpi
           mkdir -p android-app/app/src/main/res/mipmap-xxxhdpi
-          rsvg-convert yasri-delivery-logo.svg -w 48 -h 48 -o android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
-          rsvg-convert yasri-delivery-logo.svg -w 72 -h 72 -o android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
-          rsvg-convert yasri-delivery-logo.svg -w 96 -h 96 -o android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-          rsvg-convert yasri-delivery-logo.svg -w 144 -h 144 -o android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-          rsvg-convert yasri-delivery-logo.svg -w 192 -h 192 -o android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 48x48! android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 72x72! android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 96x96! android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 144x144! android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 192x192! android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
           cp android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png android-app/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
           cp android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png android-app/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
           cp android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png android-app/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
