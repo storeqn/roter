@@ -1,0 +1,50 @@
+name: Build Admin Android APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android-admin-app/**'
+      - '.github/workflows/build-admin-android-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Prepare admin app icon
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          mkdir -p android-admin-app/app/src/main/res/mipmap-mdpi
+          mkdir -p android-admin-app/app/src/main/res/mipmap-hdpi
+          mkdir -p android-admin-app/app/src/main/res/mipmap-xhdpi
+          mkdir -p android-admin-app/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android-admin-app/app/src/main/res/mipmap-xxxhdpi
+          convert admin-icon-180.png -resize 48x48! android-admin-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 72x72! android-admin-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 96x96! android-admin-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 144x144! android-admin-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert admin-icon-180.png -resize 192x192! android-admin-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          cp android-admin-app/app/src/main/res/mipmap-mdpi/ic_launcher.png android-admin-app/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+          cp android-admin-app/app/src/main/res/mipmap-hdpi/ic_launcher.png android-admin-app/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+          cp android-admin-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png android-admin-app/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+          cp android-admin-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png android-admin-app/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+          cp android-admin-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android-admin-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+      - name: Build debug APK
+        working-directory: android-admin-app
+        run: gradle assembleDebug
+      - name: Rename APK
+        run: cp android-admin-app/app/build/outputs/apk/debug/app-debug.apk YasriDeliveryAdmin.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: YasriDeliveryAdmin-APK
+          path: YasriDeliveryAdmin.apk
