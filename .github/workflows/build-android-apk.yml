@@ -25,11 +25,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y librsvg2-bin
-          mkdir -p android-app/app/src/main/res/mipmap-mdpi
-          mkdir -p android-app/app/src/main/res/mipmap-hdpi
-          mkdir -p android-app/app/src/main/res/mipmap-xhdpi
-          mkdir -p android-app/app/src/main/res/mipmap-xxhdpi
-          mkdir -p android-app/app/src/main/res/mipmap-xxxhdpi
+          mkdir -p android-app/app/src/main/res/mipmap-mdpi android-app/app/src/main/res/mipmap-hdpi android-app/app/src/main/res/mipmap-xhdpi android-app/app/src/main/res/mipmap-xxhdpi android-app/app/src/main/res/mipmap-xxxhdpi
           rsvg-convert yasri-delivery-logo.svg -w 48 -h 48 -o android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
           rsvg-convert yasri-delivery-logo.svg -w 72 -h 72 -o android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
           rsvg-convert yasri-delivery-logo.svg -w 96 -h 96 -o android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
