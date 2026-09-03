@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest?v=20">
 <link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=20">
 <link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=20">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>تطبيق الدلفري</title>
 <style>
@@ -90,6 +90,8 @@ body{min-height:100vh}
   <div class="new-order-box">
     <h3>➕ إضافة طلب جديد</h3>
     <label>رقم الطلب</label><input id="orderId" placeholder="مثال: 1052">
+    <label>رقم هاتف الزبون <span class="muted small">(اختياري)</span></label><input id="customerPhone" inputmode="tel" placeholder="مثال: 0770...">
+    <label>ملاحظات الطلب <span class="muted small">(اختياري)</span></label><input id="orderNotes" placeholder="مثال: قرب الجامع - الاتصال عند الوصول">
 
     <label>مكان الطلب / عنوان الزبون</label>
     <div class="location-tabs"><button id="textMode" class="location-tab active" type="button">✍️ كتابة العنوان</button><button id="mapMode" class="location-tab" type="button">📍 تحديد على الخريطة</button></div>
@@ -113,7 +115,7 @@ import { getDatabase, ref, get, set, update, remove, onDisconnect, push, onValue
 import { firebaseConfig } from "./firebase-config.js";
 
 const $=id=>document.getElementById(id), app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
-const name=$("driverName"),phone=$("phone"),order=$("orderId"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer");
+const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer");
 let uid=null,code=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null;
 let orderLat=null,orderLng=null,locationMode="text";
 let activeOrders=[];
@@ -171,7 +173,7 @@ function renderActiveOrders(){
     const inRoute=o.status==="on_route";
     const mins=o.deliveryStartedAt?Math.max(0,Math.floor((Date.now()-o.deliveryStartedAt)/60000)):0;
     const mapUrl=orderMapsUrl(o);
-    card.innerHTML=`<div class="active-order-top"><div><div class="active-order-no">📦 طلب #${escapeHtml(o.orderId||"—")}</div><div class="active-order-address">${escapeHtml(o.orderLocation||(o.orderLocationMode==="map"?"موقع محدد على الخريطة":"بدون عنوان"))}</div></div><span class="active-order-state ${inRoute?"on-route":""}">${inRoute?"🛵 جاري التوصيل":"جاهز للتوصيل"}</span></div><div class="active-order-actions"><button class="btn btn-primary start-order" ${inRoute?"disabled":""}>🛵 توصيل الطلب</button><button class="btn btn-success done-order" ${inRoute?"":"disabled"}>✅ تم تسليم الطلب</button></div>${mapUrl?'<a class="btn btn-dark full" style="margin-top:8px" target="_blank" rel="noopener" href="'+escapeHtml(mapUrl)+'">🗺️ فتح موقع الطلب</a>':""}${inRoute?'<div class="muted small" style="margin-top:8px">مدة التوصيل: '+mins+' دقيقة</div>':""}`;
+    card.innerHTML=`<div class="active-order-top"><div><div class="active-order-no">📦 طلب #${escapeHtml(o.orderId||"—")}</div><div class="active-order-address">${escapeHtml(o.orderLocation||(o.orderLocationMode==="map"?"موقع محدد على الخريطة":"بدون عنوان"))}</div>${o.customerPhone?'<div class="muted small" style="margin-top:5px">📞 '+escapeHtml(o.customerPhone)+'</div>':""}${o.notes?'<div class="muted small" style="margin-top:5px">📝 '+escapeHtml(o.notes)+'</div>':""}</div><span class="active-order-state ${inRoute?"on-route":""}">${inRoute?"🛵 جاري التوصيل":"جاهز للتوصيل"}</span></div><div class="active-order-actions"><button class="btn btn-primary start-order" ${inRoute?"disabled":""}>🛵 توصيل الطلب</button><button class="btn btn-success done-order" ${inRoute?"":"disabled"}>✅ تم تسليم الطلب</button></div>${o.customerPhone?'<a class="btn btn-dark full" style="margin-top:8px" href="tel:'+escapeHtml(o.customerPhone)+'">📞 اتصال بالزبون</a>':""}${mapUrl?'<a class="btn btn-dark full" style="margin-top:8px" target="_blank" rel="noopener" href="'+escapeHtml(mapUrl)+'">🗺️ فتح موقع الطلب</a>':""}${inRoute?'<div class="muted small" style="margin-top:8px">مدة التوصيل: '+mins+' دقيقة</div>':""}`;
     card.querySelector(".start-order").onclick=()=>startOrderDelivery(o.key);
     card.querySelector(".done-order").onclick=()=>finishOrderDelivery(o.key);
     box.appendChild(card);
@@ -195,7 +197,7 @@ async function finishOrderDelivery(key){
   renderActiveOrders(); await saveLive();
 }
 async function addOrder(){
-  const orderId=order.value.trim(),orderLocation=place.value.trim();
+  const orderId=order.value.trim(),orderLocation=place.value.trim(),customerPhoneValue=customerPhone.value.trim(),notesValue=orderNotes.value.trim();
   if(!orderId)return alert("اكتب رقم الطلب");
   if(locationMode==="text"&&!orderLocation)return alert("اكتب عنوان الزبون");
   if(locationMode==="map"&&(!orderLat||!orderLng))return alert("حدد مكان الطلب على الخريطة");
@@ -203,6 +205,8 @@ async function addOrder(){
     key:"o_"+Date.now()+"_"+Math.random().toString(36).slice(2,7),
     orderId,
     orderLocation,
+    customerPhone:customerPhoneValue,
+    notes:notesValue,
     orderLocationMode:locationMode,
     orderLat:locationMode==="map"?orderLat:null,
     orderLng:locationMode==="map"?orderLng:null,
@@ -211,7 +215,7 @@ async function addOrder(){
     addedAt:Date.now()
   };
   activeOrders.push(item); saveLocal(); renderActiveOrders(); await saveLive();
-  order.value="";place.value="";orderLat=null;orderLng=null;
+  order.value="";customerPhone.value="";orderNotes.value="";place.value="";orderLat=null;orderLng=null;
   if(orderMarker&&orderMap){orderMap.removeLayer(orderMarker);orderMarker=null}
   $("selectedLocation").textContent="لم يتم تحديد موقع الطلب بعد";
 }
