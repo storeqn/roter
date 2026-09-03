@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build PNG icons from embedded Yasri logo
+      - name: Build PNG icons from Yasri logo
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick
@@ -24,7 +24,9 @@ jobs:
           m=re.search(r'data:image/jpeg;base64,([^"]+)', s)
           if not m:
               raise SystemExit('embedded JPEG not found')
-          open('/tmp/yasri-logo.jpg','wb').write(base64.b64decode(m.group(1)))
+          b=''.join(m.group(1).split())
+          b += '=' * (-len(b) % 4)
+          open('/tmp/yasri-logo.jpg','wb').write(base64.b64decode(b))
           PY
           convert /tmp/yasri-logo.jpg -resize 180x180! admin-icon-180.png
           convert /tmp/yasri-logo.jpg -resize 192x192! admin-icon-192.png
