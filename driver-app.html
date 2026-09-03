@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest?v=20">
 <link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=20">
 <link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=20">
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>تطبيق الدلفري</title>
 <style>
@@ -92,6 +92,9 @@ body{min-height:100vh}
     <label>رقم الطلب</label><input id="orderId" placeholder="مثال: 1052">
     <label>رقم هاتف الزبون <span class="muted small">(اختياري)</span></label><input id="customerPhone" inputmode="tel" placeholder="مثال: 0770...">
     <label>ملاحظات الطلب <span class="muted small">(اختياري)</span></label><input id="orderNotes" placeholder="مثال: قرب الجامع - الاتصال عند الوصول">
+    <label>مبلغ الطلب <span class="muted small">(اختياري)</span></label><input id="orderAmount" inputmode="numeric" placeholder="مثال: 25000">
+    <label>طريقة الدفع</label>
+    <div class="location-tabs"><button id="cashMode" class="location-tab active" type="button">💵 نقدي</button><button id="paidMode" class="location-tab" type="button">✅ مدفوع</button></div>
 
     <label>مكان الطلب / عنوان الزبون</label>
     <div class="location-tabs"><button id="textMode" class="location-tab active" type="button">✍️ كتابة العنوان</button><button id="mapMode" class="location-tab" type="button">📍 تحديد على الخريطة</button></div>
@@ -101,6 +104,7 @@ body{min-height:100vh}
   </div>
 
   <div class="grid"><button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button><button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button></div>
+  <button id="returnBtn" class="btn btn-dark full" style="margin-top:10px" disabled>↩️ العودة للمطعم</button>
   <div id="status" class="status">الحالة: خارج الدوام</div>
   <div class="mini-grid"><div class="stat-card"><span class="muted small">آخر تحديث</span><strong id="lastUpdate">—</strong></div><div class="stat-card"><span class="muted small">مدة التوصيل</span><strong id="deliveryTimer">—</strong></div></div>
   <div id="coords" class="muted small coords"></div><div class="note">على تطبيق أندرويد يستمر إرسال الموقع حتى عند قفل الشاشة بعد بدء الدوام.</div>
@@ -115,12 +119,21 @@ import { getDatabase, ref, get, set, update, remove, onDisconnect, push, onValue
 import { firebaseConfig } from "./firebase-config.js";
 
 const $=id=>document.getElementById(id), app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
-const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer");
+const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),orderAmount=$("orderAmount"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),returnBtn=$("returnBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer");
 let uid=null,code=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null;
-let orderLat=null,orderLng=null,locationMode="text";
+let orderLat=null,orderLng=null,locationMode="text",paymentMode="cash",returningToRestaurant=false;
 let activeOrders=[];
 try{activeOrders=JSON.parse(localStorage.getItem("activeOrders")||"[]");if(!Array.isArray(activeOrders))activeOrders=[]}catch(e){activeOrders=[]}
 
+function driverState(){
+  if(!authReady)return "offline";
+  if(watchId===null&&!window.AndroidBridge)return "offline";
+  if(activeOrders.some(o=>o.status==="on_route"))return "delivering";
+  if(returningToRestaurant)return "returning";
+  return "available";
+}
+function stateLabel(s){return {available:"🟢 متاح",delivering:"🛵 لديه طلب",returning:"🟠 عائد للمطعم",offline:"⚫ خارج الدوام"}[s]||"—"}
+function refreshAutoState(){const s=driverState();setShiftStatus(stateLabel(s),s!=="offline");return s}
 function setShiftStatus(text,on=false){statusEl.textContent="الحالة: "+text;dot.className="live-dot "+(on?"on":"off")}
 function legacyOrder(){
   const inRoute=activeOrders.find(o=>o.status==="on_route");
@@ -139,7 +152,9 @@ function values(){
     orderLat:typeof current?.orderLat==="number"?current.orderLat:null,
     orderLng:typeof current?.orderLng==="number"?current.orderLng:null,
     orderStatus:current?.status||"",
-    deliveryStartedAt:current?.deliveryStartedAt||null
+    deliveryStartedAt:current?.deliveryStartedAt||null,
+    driverState:driverState(),
+    returningToRestaurant
   };
 }
 function saveLocal(){localStorage.setItem("activeOrders",JSON.stringify(activeOrders))}
@@ -173,7 +188,7 @@ function renderActiveOrders(){
     const inRoute=o.status==="on_route";
     const mins=o.deliveryStartedAt?Math.max(0,Math.floor((Date.now()-o.deliveryStartedAt)/60000)):0;
     const mapUrl=orderMapsUrl(o);
-    card.innerHTML=`<div class="active-order-top"><div><div class="active-order-no">📦 طلب #${escapeHtml(o.orderId||"—")}</div><div class="active-order-address">${escapeHtml(o.orderLocation||(o.orderLocationMode==="map"?"موقع محدد على الخريطة":"بدون عنوان"))}</div>${o.customerPhone?'<div class="muted small" style="margin-top:5px">📞 '+escapeHtml(o.customerPhone)+'</div>':""}${o.notes?'<div class="muted small" style="margin-top:5px">📝 '+escapeHtml(o.notes)+'</div>':""}</div><span class="active-order-state ${inRoute?"on-route":""}">${inRoute?"🛵 جاري التوصيل":"جاهز للتوصيل"}</span></div><div class="active-order-actions"><button class="btn btn-primary start-order" ${inRoute?"disabled":""}>🛵 توصيل الطلب</button><button class="btn btn-success done-order" ${inRoute?"":"disabled"}>✅ تم تسليم الطلب</button></div>${o.customerPhone?'<a class="btn btn-dark full" style="margin-top:8px" href="tel:'+escapeHtml(o.customerPhone)+'">📞 اتصال بالزبون</a>':""}${mapUrl?'<a class="btn btn-dark full" style="margin-top:8px" target="_blank" rel="noopener" href="'+escapeHtml(mapUrl)+'">🗺️ فتح موقع الطلب</a>':""}${inRoute?'<div class="muted small" style="margin-top:8px">مدة التوصيل: '+mins+' دقيقة</div>':""}`;
+    card.innerHTML=`<div class="active-order-top"><div><div class="active-order-no">📦 طلب #${escapeHtml(o.orderId||"—")}</div><div class="active-order-address">${escapeHtml(o.orderLocation||(o.orderLocationMode==="map"?"موقع محدد على الخريطة":"بدون عنوان"))}</div>${o.customerPhone?'<div class="muted small" style="margin-top:5px">📞 '+escapeHtml(o.customerPhone)+'</div>':""}${o.notes?'<div class="muted small" style="margin-top:5px">📝 '+escapeHtml(o.notes)+'</div>':""}${Number(o.amount)>0?'<div class="muted small" style="margin-top:5px">💰 '+Number(o.amount).toLocaleString("ar-IQ")+' د.ع · '+(o.paymentMode==="paid"?"مدفوع":"نقدي")+'</div>':""}</div><span class="active-order-state ${inRoute?"on-route":""}">${inRoute?"🛵 جاري التوصيل":"جاهز للتوصيل"}</span></div><div class="active-order-actions"><button class="btn btn-primary start-order" ${inRoute?"disabled":""}>🛵 توصيل الطلب</button><button class="btn btn-success done-order" ${inRoute?"":"disabled"}>✅ تم تسليم الطلب</button></div>${o.customerPhone?'<a class="btn btn-dark full" style="margin-top:8px" href="tel:'+escapeHtml(o.customerPhone)+'">📞 اتصال بالزبون</a>':""}${mapUrl?'<a class="btn btn-dark full" style="margin-top:8px" target="_blank" rel="noopener" href="'+escapeHtml(mapUrl)+'">🗺️ فتح موقع الطلب</a>':""}${inRoute?'<div class="muted small" style="margin-top:8px">مدة التوصيل: '+mins+' دقيقة</div>':""}`;
     card.querySelector(".start-order").onclick=()=>startOrderDelivery(o.key);
     card.querySelector(".done-order").onclick=()=>finishOrderDelivery(o.key);
     box.appendChild(card);
@@ -184,6 +199,7 @@ function renderActiveOrders(){
 async function startOrderDelivery(key){
   const o=activeOrders.find(x=>x.key===key); if(!o)return;
   o.status="on_route"; if(!o.deliveryStartedAt)o.deliveryStartedAt=Date.now();
+  returningToRestaurant=false;returnBtn.disabled=true;refreshAutoState();
   renderActiveOrders(); await saveLive();
 }
 async function finishOrderDelivery(key){
@@ -194,10 +210,11 @@ async function finishOrderDelivery(key){
   const snapshot={...o,name:name.value.trim(),phone:phone.value.trim(),id:uid,code,deliveredAt,durationMs:o.deliveryStartedAt?deliveredAt-o.deliveryStartedAt:null,status:"delivered"};
   if(uid)await set(push(ref(db,"deliveryHistory/"+uid)),snapshot);
   activeOrders.splice(idx,1);
-  renderActiveOrders(); await saveLive();
+  if(!activeOrders.length)returnBtn.disabled=false;
+  refreshAutoState();renderActiveOrders(); await saveLive();
 }
 async function addOrder(){
-  const orderId=order.value.trim(),orderLocation=place.value.trim(),customerPhoneValue=customerPhone.value.trim(),notesValue=orderNotes.value.trim();
+  const orderId=order.value.trim(),orderLocation=place.value.trim(),customerPhoneValue=customerPhone.value.trim(),notesValue=orderNotes.value.trim(),amountValue=Math.max(0,Number(String(orderAmount.value||"").replace(/[^0-9.]/g,""))||0);
   if(!orderId)return alert("اكتب رقم الطلب");
   if(locationMode==="text"&&!orderLocation)return alert("اكتب عنوان الزبون");
   if(locationMode==="map"&&(!orderLat||!orderLng))return alert("حدد مكان الطلب على الخريطة");
@@ -207,6 +224,8 @@ async function addOrder(){
     orderLocation,
     customerPhone:customerPhoneValue,
     notes:notesValue,
+    amount:amountValue,
+    paymentMode,
     orderLocationMode:locationMode,
     orderLat:locationMode==="map"?orderLat:null,
     orderLng:locationMode==="map"?orderLng:null,
@@ -215,7 +234,7 @@ async function addOrder(){
     addedAt:Date.now()
   };
   activeOrders.push(item); saveLocal(); renderActiveOrders(); await saveLive();
-  order.value="";customerPhone.value="";orderNotes.value="";place.value="";orderLat=null;orderLng=null;
+  order.value="";customerPhone.value="";orderNotes.value="";orderAmount.value="";place.value="";orderLat=null;orderLng=null;
   if(orderMarker&&orderMap){orderMap.removeLayer(orderMarker);orderMarker=null}
   $("selectedLocation").textContent="لم يتم تحديد موقع الطلب بعد";
 }
@@ -265,8 +284,11 @@ function initOrderMap(){if(orderMap)return;orderMap=L.map("orderMap").setView([3
 function setMode(mode){locationMode=mode;$("textMode").classList.toggle("active",mode==="text");$("mapMode").classList.toggle("active",mode==="map");$("textLocationBox").hidden=mode!=="text";$("mapLocationBox").hidden=mode!=="map";if(mode==="map"){initOrderMap();setTimeout(()=>orderMap.invalidateSize(),100)}}
 $("textMode").onclick=()=>setMode("text");
 $("mapMode").onclick=()=>setMode("map");
+$("cashMode").onclick=()=>{paymentMode="cash";$("cashMode").classList.add("active");$("paidMode").classList.remove("active")};
+$("paidMode").onclick=()=>{paymentMode="paid";$("paidMode").classList.add("active");$("cashMode").classList.remove("active")};
 $("myLocationBtn").onclick=()=>navigator.geolocation.getCurrentPosition(p=>selectPoint(p.coords.latitude,p.coords.longitude),()=>alert("تعذر تحديد موقعك"),{enableHighAccuracy:true});
 $("addOrderBtn").onclick=addOrder;
+returnBtn.onclick=async()=>{if(activeOrders.length)return alert("أنهِ الطلبات الحالية أولاً");returningToRestaurant=true;returnBtn.disabled=true;refreshAutoState();await saveLive();};
 setMode("text");
 renderActiveOrders();
 
@@ -290,7 +312,7 @@ start.onclick=async()=>{
   watchId=navigator.geolocation.watchPosition(async p=>{
     const now=Date.now(),d={id:uid,code,...values(),lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),speed:p.coords.speed||0,heading:p.coords.heading||0,online:true,shift:true,updatedAt:now};
     if(!nativeTracking)await set(driverRef,d);
-    setShiftStatus(nativeTracking?"في الدوام — يعمل حتى مع قفل الشاشة":"في الدوام — التتبع يعمل",true);
+    refreshAutoState();
     $("lastUpdate").textContent=new Date(now).toLocaleTimeString("ar-IQ");
     $("coords").textContent=`الموقع: ${d.lat.toFixed(6)}, ${d.lng.toFixed(6)}`;
   },e=>{
@@ -306,7 +328,7 @@ stop.onclick=async()=>{
   }else{
     await update(ref(db,"drivers/"+uid),{...values(),code,online:false,shift:false,updatedAt:Date.now()});
   }
-  setShiftStatus("خارج الدوام");start.disabled=false;stop.disabled=true;
+  returningToRestaurant=false;setShiftStatus("⚫ خارج الدوام");start.disabled=false;stop.disabled=true;returnBtn.disabled=true;
 };
 setInterval(renderActiveOrders,15000);
 </script>
