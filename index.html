@@ -7,12 +7,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إدارة الدلفري">
-<link rel="manifest" href="admin-manifest.webmanifest">
-<link rel="apple-touch-icon" href="admin-icon-yasri.png?v=5">
-<link rel="icon" type="image/png" href="admin-icon-yasri.png?v=5">
+<link rel="manifest" href="admin-manifest.webmanifest?v=6">
+<link rel="apple-touch-icon" sizes="256x256" href="yasri-delivery-logo.svg?v=6">
+<link rel="apple-touch-icon-precomposed" href="yasri-delivery-logo.svg?v=6">
+<link rel="icon" type="image/svg+xml" href="yasri-delivery-logo.svg?v=6">
 <link rel="stylesheet" href="style.css">
 <title>دخول إدارة المطعم</title>
-<link rel="apple-touch-icon-precomposed" href="admin-icon-yasri.png?v=5">\n</head>
+</head>
 <body>
 <main class="login-shell">
   <section class="login-card">
@@ -47,9 +48,7 @@ async function bootstrapAdmin(){
     if(!s.exists()){
       await set(r,{role:"admin",name:"إدارة المطعم",phone:"",enabled:true,createdAt:Date.now()});
     }
-  }catch(e){
-    // بعد نشر قواعد الحماية النهائية سيكون إنشاء الكود ممنوعاً هنا، وهذا طبيعي.
-  }
+  }catch(e){}
 }
 
 async function verifyExistingSession(){
