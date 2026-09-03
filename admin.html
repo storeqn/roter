@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0f172a">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <title>لوحة متابعة الدلفري</title>
+</head>
+<body>
+<main class="container">
+  <div class="topbar">
+    <div>
+      <h1>لوحة المطعم 📍</h1>
+      <div class="muted">متابعة مواقع الدلفري مباشرة</div>
+    </div>
+    <a href="driver.html" class="btn btn-dark">صفحة الدلفري</a>
+  </div>
+
+  <section class="card">
+    <div id="setupWarning" class="warning" hidden>لم يتم ربط Firebase بعد.</div>
+    <div id="map"></div>
+    <div id="driverList" class="driver-list"></div>
+  </section>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { firebaseConfig, firebaseReady } from "./firebase-config.js";
+
+const map = L.map("map").setView([30.50, 47.78], 10);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: "&copy; OpenStreetMap"
+}).addTo(map);
+
+const list = document.getElementById("driverList");
+const markers = {};
+let firstFit = true;
+
+if (!firebaseReady) {
+  document.getElementById("setupWarning").hidden = false;
+  list.innerHTML = '<div class="driver-item">أكمل ربط Firebase أولاً حتى تظهر المواقع المباشرة.</div>';
+} else {
+  const db = getDatabase(initializeApp(firebaseConfig));
+  onValue(ref(db, "drivers"), snap => {
+    const drivers = snap.val() || {};
+    list.innerHTML = "";
+    const activePoints = [];
+
+    Object.entries(drivers).forEach(([id,d]) => {
+      const age = Date.now() - (d.updatedAt || 0);
+      const active = !!(d.online && age < 90000 && typeof d.lat==="number" && typeof d.lng==="number");
+
+      const item = document.createElement("div");
+      item.className = "driver-item";
+      item.innerHTML = `
+        <strong>${d.name || "دلفري"}</strong>
+        <div>الطلب: ${d.orderId || "-"}</div>
+        <div class="small muted">${active ? "🟢 متصل الآن" : "⚪ غير متصل"} — آخر تحديث: ${d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString("ar-IQ") : "-"}</div>
+      `;
+      list.appendChild(item);
+
+      if (active) {
+        activePoints.push([d.lat,d.lng]);
+        if (!markers[id]) markers[id] = L.marker([d.lat,d.lng]).addTo(map);
+        else markers[id].setLatLng([d.lat,d.lng]);
+        markers[id].bindPopup(`<b>${d.name || "دلفري"}</b><br>طلب ${d.orderId || "-"}`);
+      }
+    });
+
+    if (!Object.keys(drivers).length) {
+      list.innerHTML = '<div class="driver-item">لا توجد مواقع مرسلة حتى الآن.</div>';
+    }
+
+    if (firstFit && activePoints.length) {
+      map.fitBounds(activePoints, {padding:[40,40], maxZoom:16});
+      firstFit = false;
+    }
+  });
+}
+</script>
+</body>
+</html>
