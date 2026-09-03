@@ -1,11 +1,11 @@
 export const firebaseConfig = {
-  apiKey: "PUT_API_KEY_HERE",
-  authDomain: "PUT_PROJECT.firebaseapp.com",
-  databaseURL: "https://PUT_PROJECT-default-rtdb.firebaseio.com",
-  projectId: "PUT_PROJECT",
-  storageBucket: "PUT_PROJECT.appspot.com",
-  messagingSenderId: "PUT_SENDER_ID_HERE",
-  appId: "PUT_APP_ID_HERE"
+  apiKey: "AIzaSyD121IwvJ1RXq-WsYof6mDCwJxco1IBDy8",
+  authDomain: "delivery-tracker-febcc.firebaseapp.com",
+  databaseURL: "https://delivery-tracker-febcc-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "delivery-tracker-febcc",
+  storageBucket: "delivery-tracker-febcc.firebasestorage.app",
+  messagingSenderId: "1038366061508",
+  appId: "1:1038366061508:web:7d34a4ada107c3a13b2a91"
 };
 
 export const firebaseReady = !Object.values(firebaseConfig).some(v => String(v).includes("PUT_"));
