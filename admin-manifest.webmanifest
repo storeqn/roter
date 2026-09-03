@@ -1,4 +1,5 @@
 {
+  "id": "./admin-pwa-v1",
   "name": "إدارة الدلفري - مطعم الياسري",
   "short_name": "إدارة الدلفري",
   "start_url": "./",
@@ -9,7 +10,8 @@
   "lang": "ar",
   "dir": "rtl",
   "icons": [
-    {"src":"yasri-delivery-logo.svg?v=8","sizes":"any","type":"image/svg+xml","purpose":"any maskable"},
-    {"src":"admin-icon-180.png?v=8","sizes":"180x180","type":"image/png","purpose":"any"}
+    {"src":"yasri-delivery-logo.svg?v=9","sizes":"any","type":"image/svg+xml","purpose":"any"},
+    {"src":"yasri-delivery-logo.svg?v=9","sizes":"any","type":"image/svg+xml","purpose":"maskable"},
+    {"src":"admin-icon-180.png?v=9","sizes":"180x180","type":"image/png","purpose":"any"}
   ]
 }
