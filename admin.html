@@ -7,13 +7,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إدارة الدلفري">
-<link rel="manifest" href="admin-manifest.webmanifest?v=20">
-<link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=20">
-<link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=20">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="manifest" href="admin-manifest.webmanifest?v=21">
+<link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=21">
+<link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=21">
+<link rel="stylesheet" href="style.css?v=12">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>لوحة المطعم</title>
-<link rel="apple-touch-icon-precomposed" href="admin-icon-180.png?v=20">\n<style>
+<link rel="apple-touch-icon-precomposed" href="admin-icon-180.png?v=21">\n<style>
 .multi-orders-admin{grid-column:1/-1;border-top:1px solid rgba(148,163,184,.16);padding-top:10px;margin-top:4px}
 .multi-orders-admin-title{font-weight:800;margin-bottom:8px}
 .multi-orders-admin-list{display:grid;gap:7px}
@@ -253,7 +253,7 @@ onAuthStateChanged(auth,async user=>{
 <script>
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=10').catch(()=>{});
+    navigator.serviceWorker.register('./sw.js?v=12').catch(()=>{});
   });
 }
 </script>
