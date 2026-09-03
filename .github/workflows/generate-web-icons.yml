@@ -26,4 +26,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin-icon-180.png admin-icon-192.png admin-icon-512.png
           git diff --cached --quiet || git commit -m "Generate admin web app icons"
-          git push
+          git pull --rebase origin main
+          git push origin main
