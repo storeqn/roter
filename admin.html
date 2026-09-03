@@ -118,11 +118,27 @@ async function verifyAdmin(){
   return !!(v&&v.enabled===true&&v.role==="admin");
 }
 
-async function deleteDriver(id,name){
-  if(!confirm("هل تريد حذف "+(name||"هذا الدلفري")+" من التتبع؟"))return;
-  await remove(ref(db,"drivers/"+id));
-  if(markers[id]){map.removeLayer(markers[id]);delete markers[id]}
-  if(orderMarkers[id]){map.removeLayer(orderMarkers[id]);delete orderMarkers[id]}
+async function deleteDriver(id,name,driverData={}){
+  if(!confirm("هل تريد حذف "+(name||"هذا الدلفري")+" نهائياً من النظام؟\n\nسيتم حذف: بياناته الحالية + موقعه + جلسته + كود دخوله.\nسيبقى سجل الطلبات المكتملة محفوظاً."))return;
+  const driverCode=String(driverData.code||"").trim();
+  try{
+    const tasks=[
+      remove(ref(db,"drivers/"+id)),
+      remove(ref(db,"sessions/"+id))
+    ];
+    if(driverCode)tasks.push(remove(ref(db,"accessCodes/"+driverCode)));
+    await Promise.all(tasks);
+    dataEntries=dataEntries.filter(([driverId])=>driverId!==id);
+    if(driverCode)codeEntries=codeEntries.filter(([code])=>code!==driverCode);
+    if(markers[id]){map.removeLayer(markers[id]);delete markers[id]}
+    if(orderMarkers[id]){map.removeLayer(orderMarkers[id]);delete orderMarkers[id]}
+    renderDrivers();
+    renderCodes();
+    alert("تم حذف الدلفري من النظام بنجاح");
+  }catch(e){
+    console.error(e);
+    alert("تعذر حذف الدلفري بالكامل. تأكد من نشر قواعد Firebase الجديدة.");
+  }
 }
 
 function renderDrivers(){
@@ -147,7 +163,7 @@ function renderDrivers(){
     if(q&&!String(d.name||"").toLowerCase().includes(q)&&!String(d.phone||"").includes(q)&&!activeOrders.some(o=>String(o.orderId||"").toLowerCase().includes(q)))return;
     const mapLink=mapsUrl(d),el=document.createElement("div");el.className="driver-item modern-row "+(late?"late-row":"");
     el.innerHTML=`<div class="driver-profile"><div class="mini-scooter">🛵</div><div><strong>${esc(d.name||"دلفري")}</strong><div class="connect ${active?"yes":"no"}">${active?"● متصل الآن":"● خارج الدوام"}</div></div></div><div class="info-cell"><span>الطلبات الحالية</span><b>${activeOrders.length}</b></div><div class="info-cell"><span>رقم الدلفري</span><b>${esc(d.phone||"—")}</b></div><div class="info-cell"><span>حالة التوصيل</span><b>${routeOrders.length?"🛵 لديه "+routeOrders.length+" قيد التوصيل":activeOrders.length?"جاهز للتوصيل":"جاهز لطلب جديد"}</b></div><div class="info-cell"><span>أطول مدة توصيل</span><b class="${late?"late-text":""}">${minutes!==null?minutes+" دقيقة":"—"}${late?" ⚠️":""}</b></div><div class="driver-actions"><button class="btn btn-primary focus" ${hasLocation?"":"disabled"}>عرض الموقع</button>${d.phone?'<a class="btn btn-dark" href="tel:'+esc(d.phone)+'">📞 اتصال</a>':""}<button class="btn btn-danger delete">حذف</button></div>${activeOrdersHtml(d)}`;
-    el.querySelector(".focus").onclick=()=>focusDriver(id);el.querySelector(".delete").onclick=()=>deleteDriver(id,d.name);list.appendChild(el);
+    el.querySelector(".focus").onclick=()=>focusDriver(id);el.querySelector(".delete").onclick=()=>deleteDriver(id,d.name,d);list.appendChild(el);
   });
   document.getElementById("onlineCount").textContent=online;document.getElementById("offlineCount").textContent=Math.max(dataEntries.length-online,0);document.getElementById("totalCount").textContent=dataEntries.length;
   if(!list.children.length)list.innerHTML='<div class="driver-item">لا توجد نتائج.</div>';
