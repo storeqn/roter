@@ -74,6 +74,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getDatabase, ref, set, update, onDisconnect, push } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig, firebaseReady } from "./firebase-config.js";
 
@@ -96,14 +97,27 @@ let locationMode = localStorage.getItem("locationMode") || "text";
 let orderStatus = localStorage.getItem("orderStatus") || "received";
 let deliveryStartedAt = Number(localStorage.getItem("deliveryStartedAt")) || null;
 let watchId = null;
-let driverId = localStorage.getItem("driverId");
+let driverId = null;
+const app = firebaseReady ? initializeApp(firebaseConfig) : null;
+const auth = app ? getAuth(app) : null;
+const db = app ? getDatabase(app) : null;
+let authReady = false;
 
-if (!driverId) {
-  driverId = "drv_" + crypto.randomUUID().slice(0,8);
-  localStorage.setItem("driverId", driverId);
+if (firebaseReady) {
+  onAuthStateChanged(auth, async user => {
+    if (user) {
+      driverId = user.uid;
+      authReady = true;
+      start.disabled = false;
+      if (statusEl.textContent.includes("جاري تسجيل الدخول")) setShiftStatus("خارج الدوام");
+    } else {
+      start.disabled = true;
+      setShiftStatus("جاري تسجيل الدخول...");
+      try { await signInAnonymously(auth); }
+      catch(e){ console.error(e); setShiftStatus("تعذر تسجيل الدخول"); }
+    }
+  });
 }
-
-const db = firebaseReady ? getDatabase(initializeApp(firebaseConfig)) : null;
 
 function setShiftStatus(text, on=false) {
   statusEl.textContent = "الحالة: " + text;
@@ -204,7 +218,7 @@ async function setOrderStatus(next) {
       durationMs: deliveryStartedAt ? deliveredAt - deliveryStartedAt : null
     };
     if (db && order.value.trim()) {
-      await set(push(ref(db,"deliveryHistory")), snapshot);
+      await set(push(ref(db,"deliveryHistory/"+driverId)), snapshot);
     }
   }
 
@@ -244,9 +258,13 @@ renderStatusButtons();
 if (!firebaseReady) {
   setShiftStatus("بانتظار ربط Firebase");
   start.disabled = true;
+} else {
+  start.disabled = true;
+  setShiftStatus("جاري تسجيل الدخول...");
 }
 
 start.onclick = () => {
+  if (!authReady || !driverId) return alert("انتظر لحظة حتى يكتمل تسجيل الدخول");
   if (!name.value.trim()) return alert("اكتب اسم الدلفري");
   if (locationMode === "map" && order.value.trim() && (!orderLat || !orderLng)) return alert("حدد مكان الطلب على الخريطة");
   if (!navigator.geolocation) return alert("الجهاز لا يدعم تحديد الموقع");
