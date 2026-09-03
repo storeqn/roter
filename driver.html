@@ -15,7 +15,7 @@
     <div class="login-icon">🛵</div><h1>دخول الدلفري</h1><p class="muted">أدخل الكود الذي أعطاك إياه صاحب المطعم.</p>
     <input id="driverCode" type="password" inputmode="text" placeholder="كود الدلفري">
     <button id="driverLoginBtn" class="btn btn-primary full">دخول</button>
-    <div id="driverLoginMsg" class="login-msg">جاري تجهيز الدخول...</div>
+    <div id="driverLoginMsg" class="login-msg">جاري تجهيز الدخول...</div><div id="driverDebug" class="muted small">الإصدار: 1.3</div>
   </section>
 </div>
 
@@ -109,22 +109,12 @@ function withTimeout(promise,ms=8000){
 async function loginDriver(){
   const code=$("driverCode").value.trim();
   if(!code)return $("driverLoginMsg").textContent="اكتب كود الدلفري";
-  if(!uid){
-    $("driverLoginMsg").textContent="جاري تسجيل الدخول...";
-    try{
-      const cred=await withTimeout(signInAnonymously(auth),8000);
-      uid=cred.user.uid;
-    }catch(e){
-      console.error("anonymous auth",e);
-      $("driverLoginMsg").textContent="تعذر الاتصال بـ Firebase";
-      $("driverLoginBtn").disabled=false;
-      return;
-    }
-  }
   $("driverLoginBtn").disabled=true;
-  $("driverLoginMsg").textContent="جاري التحقق...";
   try{
-    const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)));
+    $("driverLoginMsg").textContent="1/3 الاتصال بالنظام...";
+    await ensureAnonymous();
+    $("driverLoginMsg").textContent="2/3 فحص الكود...";
+    const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)),10000);
     const codeData=codeSnap.val();
 
     if(!(codeData&&codeData.enabled===true&&codeData.role==="driver")){
@@ -132,7 +122,8 @@ async function loginDriver(){
       return;
     }
 
-    await withTimeout(set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()}));
+    $("driverLoginMsg").textContent="3/3 فتح الحساب...";
+    await withTimeout(set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()}),10000);
     openDriverAccess(code,codeData);
   }catch(e){
     console.error("loginDriver",e);
@@ -153,18 +144,44 @@ async function loginDriver(){
 $("driverLoginBtn").onclick=loginDriver;$("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")loginDriver()});
 $("driverLogoutBtn").onclick=async()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);try{await remove(ref(db,"sessions/"+uid))}catch(e){}await signOut(auth);location.reload()};
 
+async function ensureAnonymous(){
+  if(auth.currentUser){
+    uid=auth.currentUser.uid;
+    return auth.currentUser;
+  }
+  $("driverLoginMsg").textContent="جاري الاتصال بـ Firebase...";
+  const cred=await withTimeout(signInAnonymously(auth),10000);
+  uid=cred.user.uid;
+  return cred.user;
+}
+
 onAuthStateChanged(auth,async user=>{
   if(!user){
-    $("driverLoginMsg").textContent="";
     $("driverLoginBtn").disabled=false;
+    $("driverLoginMsg").textContent="";
     return;
   }
   uid=user.uid;
+  $("driverDebug").textContent="متصل بالنظام";
   const opened=await unlockWithSession();
   if(opened)return;
   $("driverLoginBtn").disabled=false;
   $("driverLoginMsg").textContent="";
 });
+
+(async()=>{
+  try{
+    await ensureAnonymous();
+    $("driverLoginBtn").disabled=false;
+    $("driverLoginMsg").textContent="";
+    $("driverDebug").textContent="متصل بالنظام";
+  }catch(e){
+    console.error("initial auth",e);
+    $("driverLoginBtn").disabled=false;
+    $("driverLoginMsg").textContent="تعذر الاتصال بـ Firebase — اضغط دخول للمحاولة";
+    $("driverDebug").textContent="غير متصل";
+  }
+})();
 
 function selectPoint(lat,lng){orderLat=lat;orderLng=lng;localStorage.setItem("orderLat",lat);localStorage.setItem("orderLng",lng);if(orderMarker)orderMarker.setLatLng([lat,lng]);else orderMarker=L.marker([lat,lng]).addTo(orderMap);$("selectedLocation").textContent="تم تحديد الموقع: "+lat.toFixed(5)+", "+lng.toFixed(5);orderMap.panTo([lat,lng]);saveLive()}
 function initOrderMap(){if(orderMap)return;orderMap=L.map("orderMap").setView([30.50,47.78],12);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(orderMap);orderMap.on("click",e=>selectPoint(e.latlng.lat,e.latlng.lng));if(orderLat&&orderLng)selectPoint(orderLat,orderLng)}
