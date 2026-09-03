@@ -46,12 +46,12 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getDatabase, ref, get, set, update, remove, onDisconnect, push } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getDatabase, ref, get, set, update, remove, onDisconnect, push, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
 const $=id=>document.getElementById(id), app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
 const name=$("driverName"),phone=$("phone"),order=$("orderId"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer");
-let uid=null,access=null,authReady=false,watchId=null,orderMap=null,orderMarker=null;
+let uid=null,access=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null;
 let orderLat=Number(localStorage.getItem("orderLat"))||null,orderLng=Number(localStorage.getItem("orderLng"))||null,locationMode=localStorage.getItem("locationMode")||"text",orderStatus=localStorage.getItem("orderStatus")||"received",deliveryStartedAt=Number(localStorage.getItem("deliveryStartedAt"))||null;
 order.value=localStorage.getItem("orderId")||"";place.value=localStorage.getItem("orderLocation")||"";
 
@@ -61,31 +61,78 @@ function saveLocal(){localStorage.setItem("orderId",order.value.trim());localSto
 async function saveLive(){saveLocal();if(watchId!==null)await update(ref(db,"drivers/"+uid),{...values(),updatedAt:Date.now()})}
 
 async function unlockWithSession(){
-  const ss=await get(ref(db,"sessions/"+uid));if(!ss.exists())return false;
-  const code=ss.val().code,cs=await get(ref(db,"accessCodes/"+code)),v=cs.val();
-  if(!(v&&v.enabled===true&&v.role==="driver"))return false;
-  access=v;name.value=v.name||"";phone.value=v.phone||"";$("identityName").textContent=v.name||"دلفري";$("identityPhone").textContent=v.phone||"";
-  $("driverLogin").hidden=true;$("driverApp").hidden=false;authReady=true;return true;
+  try{
+    const ss=await get(ref(db,"sessions/"+uid));
+    if(!ss.exists())return false;
+    const code=ss.val().code;
+    const cs=await get(ref(db,"accessCodes/"+code));
+    const v=cs.val();
+    if(!(v&&v.enabled===true&&v.role==="driver"))return false;
+    access={...v,code};
+    name.value=v.name||"";
+    phone.value=v.phone||"";
+    $("identityName").textContent=v.name||"دلفري";
+    $("identityPhone").textContent=v.phone||"";
+    $("driverLogin").hidden=true;
+    $("driverApp").hidden=false;
+    authReady=true;
+
+    if(accessUnsub) accessUnsub();
+    accessUnsub=onValue(ref(db,"accessCodes/"+code),snap=>{
+      const latest=snap.val();
+      if(!latest||latest.enabled!==true||latest.role!=="driver"){
+        authReady=false;
+        if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}
+        setShiftStatus("تم إيقاف كود الدخول");
+        alert("تم إيقاف أو حذف كود الدلفري من إدارة المطعم.");
+        location.reload();
+      }
+    });
+    return true;
+  }catch(e){
+    console.error("unlockWithSession",e);
+    return false;
+  }
 }
 
 async function loginDriver(){
-  const code=$("driverCode").value.trim();if(!code)return $("driverLoginMsg").textContent="اكتب كود الدلفري";
-  $("driverLoginBtn").disabled=true;$("driverLoginMsg").textContent="جاري التحقق...";
+  const code=$("driverCode").value.trim();
+  if(!code)return $("driverLoginMsg").textContent="اكتب كود الدلفري";
+  if(!uid)return $("driverLoginMsg").textContent="انتظر لحظة حتى يكتمل الاتصال";
+  $("driverLoginBtn").disabled=true;
+  $("driverLoginMsg").textContent="جاري التحقق...";
   try{
+    const codeSnap=await get(ref(db,"accessCodes/"+code));
+    const codeData=codeSnap.val();
+    if(!(codeData&&codeData.enabled===true&&codeData.role==="driver")){
+      $("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
+      return;
+    }
     await set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()});
     if(await unlockWithSession())return;
-    await remove(ref(db,"sessions/"+uid));$("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
-  }catch(e){console.error(e);$("driverLoginMsg").textContent="الكود غير صحيح أو متوقف"}
-  $("driverLoginBtn").disabled=false;
+    $("driverLoginMsg").textContent="تعذر فتح الحساب، حاول مرة أخرى";
+  }catch(e){
+    console.error("loginDriver",e);
+    $("driverLoginMsg").textContent=e?.code==="PERMISSION_DENIED"?"يجب تحديث قواعد Firebase مرة واحدة":"تعذر التحقق من الكود";
+  }finally{
+    if(!$("driverApp").hidden===false)return;
+    $("driverLoginBtn").disabled=false;
+  }
 }
 $("driverLoginBtn").onclick=loginDriver;$("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")loginDriver()});
 $("driverLogoutBtn").onclick=async()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);try{await remove(ref(db,"sessions/"+uid))}catch(e){}await signOut(auth);location.reload()};
 
 onAuthStateChanged(auth,async user=>{
-  if(!user){try{await signInAnonymously(auth)}catch(e){$("driverLoginMsg").textContent="تعذر تسجيل الدخول"}return}
+  if(!user){
+    $("driverLoginMsg").textContent="جاري تسجيل الدخول...";
+    try{await signInAnonymously(auth)}catch(e){console.error(e);$("driverLoginMsg").textContent="تعذر تسجيل الدخول إلى Firebase"}
+    return;
+  }
   uid=user.uid;
-  if(await unlockWithSession())return;
-  $("driverLoginBtn").disabled=false;$("driverLoginMsg").textContent="";
+  const opened=await unlockWithSession();
+  if(opened)return;
+  $("driverLoginBtn").disabled=false;
+  $("driverLoginMsg").textContent="";
 });
 
 function selectPoint(lat,lng){orderLat=lat;orderLng=lng;localStorage.setItem("orderLat",lat);localStorage.setItem("orderLng",lng);if(orderMarker)orderMarker.setLatLng([lat,lng]);else orderMarker=L.marker([lat,lng]).addTo(orderMap);$("selectedLocation").textContent="تم تحديد الموقع: "+lat.toFixed(5)+", "+lng.toFixed(5);orderMap.panTo([lat,lng]);saveLive()}
