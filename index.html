@@ -1,12 +1,57 @@
 <!doctype html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
-  <title>لوحة متابعة الدلفري</title>
-  <meta http-equiv="refresh" content="0; url=admin.html">
-  <script>location.replace("admin.html");</script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#07111f">
+<link rel="stylesheet" href="style.css">
+<title>دخول الإدارة</title>
 </head>
-<body></body>
+<body>
+<main class="login-shell">
+  <section class="login-card">
+    <div class="login-icon">🔐</div>
+    <h1>دخول إدارة المطعم</h1>
+    <p class="muted">أدخل كود الإدارة لفتح لوحة المتابعة.</p>
+    <input id="adminCode" type="password" autocomplete="current-password" placeholder="كود الإدارة">
+    <button id="loginBtn" class="btn btn-primary full">دخول</button>
+    <div id="loginMsg" class="login-msg"></div>
+  </section>
+</main>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const ADMIN_EMAIL = "restaurant-admin@delivery-tracker.local";
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const code = document.getElementById("adminCode");
+const btn = document.getElementById("loginBtn");
+const msg = document.getElementById("loginMsg");
+
+onAuthStateChanged(auth, user => {
+  if (user && user.email === ADMIN_EMAIL) location.replace("admin.html");
+});
+
+async function login(){
+  const pass = code.value;
+  if (!pass) return msg.textContent = "اكتب كود الإدارة";
+  btn.disabled = true;
+  msg.textContent = "جاري التحقق...";
+  try{
+    await signInWithEmailAndPassword(auth, ADMIN_EMAIL, pass);
+    location.replace("admin.html");
+  }catch(e){
+    console.error(e);
+    msg.textContent = "الكود غير صحيح أو لم يتم تجهيز حساب الإدارة بعد";
+  }finally{
+    btn.disabled = false;
+  }
+}
+btn.onclick = login;
+code.addEventListener("keydown", e => { if(e.key==="Enter") login(); });
+</script>
+</body>
 </html>
