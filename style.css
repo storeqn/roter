@@ -1,3 +1,4 @@
+[hidden]{display:none!important}
 :root{--bg:#07111f;--card:#0d192b;--panel:#101d31;--muted:#8e9bb0;--text:#f8fafc;--accent:#22c55e;--danger:#ef4444;--line:#26364f}
 *{box-sizing:border-box}
 body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;background:radial-gradient(circle at top,#10203a 0,#07111f 42%);color:var(--text);direction:rtl}
