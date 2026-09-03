@@ -1,4 +1,4 @@
-const CACHE='yasri-pwa-v13';
+const CACHE='yasri-pwa-v14';
 self.addEventListener('install',event=>{self.skipWaiting();});
 self.addEventListener('activate',event=>{
   event.waitUntil((async()=>{
