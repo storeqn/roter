@@ -47,6 +47,11 @@ body{min-height:100vh}
   .grid{grid-template-columns:1fr}
 }
 </style>
+<style>
+.delivery-two-actions{grid-template-columns:1fr 1fr!important}
+.status-btn:disabled{opacity:.42;cursor:not-allowed;filter:grayscale(.35)}
+@media(max-width:480px){.delivery-two-actions{grid-template-columns:1fr 1fr!important}}
+</style>
 </head>
 <body>
 <main class="container narrow">
