@@ -6,201 +6,91 @@
 <meta name="theme-color" content="#07111f">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="style.css">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<title>تطبيق الدلفري</title>
+<title>دخول الدلفري</title>
 </head>
 <body>
-<div id="driverLogin" class="login-shell">
+<main class="login-shell">
   <section class="login-card">
-    <div class="login-icon">🛵</div><h1>دخول الدلفري</h1><p class="muted">أدخل الكود الذي أعطاك إياه صاحب المطعم.</p>
+    <div class="login-icon">🛵</div>
+    <h1>دخول الدلفري</h1>
+    <p class="muted">أدخل الكود الذي أعطاك إياه صاحب المطعم.</p>
     <input id="driverCode" type="password" inputmode="text" placeholder="كود الدلفري">
     <button id="driverLoginBtn" class="btn btn-primary full">دخول</button>
-    <div id="driverLoginMsg" class="login-msg">جاري تجهيز الدخول...</div><div id="driverDebug" class="muted small">الإصدار: 1.3</div>
+    <div id="driverLoginMsg" class="login-msg"></div>
+    <div id="driverDebug" class="muted small">جاري الاتصال بالنظام...</div>
   </section>
-</div>
-
-<main id="driverApp" class="container narrow" hidden>
-<section class="card">
-  <div class="driver-head"><div><div class="badge">تطبيق الدلفري</div><h1>الدوام والتتبع 🛵</h1></div><div id="liveDot" class="live-dot off"></div></div>
-  <div class="driver-identity"><strong id="identityName">—</strong><span id="identityPhone" class="muted">—</span><button id="driverLogoutBtn" class="btn btn-dark">خروج</button></div>
-
-  <label>اسم الدلفري</label><input id="driverName" readonly>
-  <label>رقم الدلفري / الهاتف</label><input id="phone" readonly>
-  <label>رقم الطلب الحالي</label><input id="orderId" placeholder="مثال: 1052">
-
-  <label>مكان الطلب / عنوان الزبون</label>
-  <div class="location-tabs"><button id="textMode" class="location-tab active" type="button">✍️ كتابة العنوان</button><button id="mapMode" class="location-tab" type="button">📍 تحديد على الخريطة</button></div>
-  <div id="textLocationBox"><input id="orderLocation" placeholder="مثال: حي الجمعة - قرب المدرسة"></div>
-  <div id="mapLocationBox" hidden><div id="orderMap"></div><div class="map-help">اضغط على موقع الزبون في الخريطة، أو استخدم موقعك الحالي.</div><button id="myLocationBtn" type="button" class="btn btn-dark full">📍 استخدام موقعي الحالي</button><div id="selectedLocation" class="selected-location">لم يتم تحديد موقع الطلب بعد</div></div>
-
-  <div class="order-status-box"><label>حالة الطلب</label><div class="status-actions"><button type="button" data-order-status="received" class="status-btn active">📦 تم الاستلام</button><button type="button" data-order-status="on_route" class="status-btn">🛵 خرج للتوصيل</button><button type="button" data-order-status="arrived" class="status-btn">📍 وصل للزبون</button><button type="button" data-order-status="delivered" class="status-btn">✅ تم التسليم</button></div></div>
-
-  <div class="grid"><button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button><button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button></div>
-  <div id="status" class="status">الحالة: خارج الدوام</div>
-  <div class="mini-grid"><div class="stat-card"><span class="muted small">آخر تحديث</span><strong id="lastUpdate">—</strong></div><div class="stat-card"><span class="muted small">مدة التوصيل</span><strong id="deliveryTimer">—</strong></div></div>
-  <div id="coords" class="muted small coords"></div><div class="note">أبقِ الصفحة مفتوحة أثناء الدوام لضمان استمرار تحديث الموقع.</div>
-</section>
 </main>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getDatabase, ref, get, set, update, remove, onDisconnect, push, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
-const $=id=>document.getElementById(id), app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
-const name=$("driverName"),phone=$("phone"),order=$("orderId"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer");
-let uid=null,access=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null;
-let orderLat=Number(localStorage.getItem("orderLat"))||null,orderLng=Number(localStorage.getItem("orderLng"))||null,locationMode=localStorage.getItem("locationMode")||"text",orderStatus=localStorage.getItem("orderStatus")||"received",deliveryStartedAt=Number(localStorage.getItem("deliveryStartedAt"))||null;
-order.value=localStorage.getItem("orderId")||"";place.value=localStorage.getItem("orderLocation")||"";
+const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getDatabase(app);
+const $=id=>document.getElementById(id);
+let uid=null;
 
-function setShiftStatus(text,on=false){statusEl.textContent="الحالة: "+text;dot.className="live-dot "+(on?"on":"off")}
-function values(){return{name:name.value.trim(),phone:phone.value.trim(),orderId:order.value.trim(),orderLocation:place.value.trim(),orderLocationMode:locationMode,orderLat:locationMode==="map"?orderLat:null,orderLng:locationMode==="map"?orderLng:null,orderStatus,deliveryStartedAt}}
-function saveLocal(){localStorage.setItem("orderId",order.value.trim());localStorage.setItem("orderLocation",place.value.trim());localStorage.setItem("orderStatus",orderStatus);if(deliveryStartedAt)localStorage.setItem("deliveryStartedAt",deliveryStartedAt);else localStorage.removeItem("deliveryStartedAt")}
-async function saveLive(){saveLocal();if(watchId!==null)await update(ref(db,"drivers/"+uid),{...values(),updatedAt:Date.now()})}
-
-function openDriverAccess(code,v){
-  access={...v,code};
-  name.value=v.name||"";
-  phone.value=v.phone||"";
-  $("identityName").textContent=v.name||"دلفري";
-  $("identityPhone").textContent=v.phone||"";
-  $("driverLogin").hidden=true;
-  $("driverApp").hidden=false;
-  authReady=true;
-  $("driverLoginMsg").textContent="";
-  if(accessUnsub) accessUnsub();
-  accessUnsub=onValue(ref(db,"accessCodes/"+code),snap=>{
-    const latest=snap.val();
-    if(!latest||latest.enabled!==true||latest.role!=="driver"){
-      authReady=false;
-      if(watchId!==null){navigator.geolocation.clearWatch(watchId);watchId=null}
-      setShiftStatus("تم إيقاف كود الدخول");
-      alert("تم إيقاف أو حذف كود الدلفري من إدارة المطعم.");
-      location.reload();
-    }
-  });
-  return true;
+function withTimeout(promise,ms=10000){
+  return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),ms))]);
 }
 
-async function unlockWithSession(){
+async function ensureAnonymous(){
+  if(auth.currentUser){uid=auth.currentUser.uid;return auth.currentUser}
+  const cred=await withTimeout(signInAnonymously(auth));
+  uid=cred.user.uid;return cred.user;
+}
+
+async function checkExisting(){
   try{
+    if(!uid)return false;
     const ss=await get(ref(db,"sessions/"+uid));
     if(!ss.exists())return false;
     const code=ss.val().code;
     const cs=await get(ref(db,"accessCodes/"+code));
     const v=cs.val();
-    if(!(v&&v.enabled===true&&v.role==="driver"))return false;
-    return openDriverAccess(code,v);
-  }catch(e){
-    console.error("unlockWithSession",e);
-    return false;
-  }
+    if(v&&v.enabled===true&&v.role==="driver"){
+      location.replace("driver-app.html");
+      return true;
+    }
+  }catch(e){}
+  return false;
 }
 
-function withTimeout(promise,ms=8000){
-  return Promise.race([
-    promise,
-    new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),ms))
-  ]);
-}
-
-async function loginDriver(){
+async function login(){
   const code=$("driverCode").value.trim();
   if(!code)return $("driverLoginMsg").textContent="اكتب كود الدلفري";
   $("driverLoginBtn").disabled=true;
+  $("driverLoginMsg").textContent="جاري التحقق...";
   try{
-    $("driverLoginMsg").textContent="1/3 الاتصال بالنظام...";
     await ensureAnonymous();
-    $("driverLoginMsg").textContent="2/3 فحص الكود...";
-    const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)),10000);
-    const codeData=codeSnap.val();
-
-    if(!(codeData&&codeData.enabled===true&&codeData.role==="driver")){
-      $("driverLoginMsg").textContent="الكود  "+code+"  غير صحيح أو متوقف";
+    const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)));
+    const v=codeSnap.val();
+    if(!(v&&v.enabled===true&&v.role==="driver")){
+      $("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
       return;
     }
-
-    $("driverLoginMsg").textContent="3/3 فتح الحساب...";
-    await withTimeout(set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()}),10000);
-    openDriverAccess(code,codeData);
+    await withTimeout(set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()}));
+    location.replace("driver-app.html");
   }catch(e){
-    console.error("loginDriver",e);
-    const raw=String(e?.code||e?.message||"");
-    if(raw.includes("PERMISSION_DENIED")||raw.includes("permission-denied")){
-      $("driverLoginMsg").textContent="Firebase رفض الدخول — تحقق من قواعد Rules";
-    }else if(raw.includes("timeout")){
-      $("driverLoginMsg").textContent="انتهت مهلة الاتصال. أعد المحاولة.";
-    }else{
-      $("driverLoginMsg").textContent="تعذر التحقق من الكود. أعد المحاولة.";
-    }
+    console.error(e);
+    $("driverLoginMsg").textContent=String(e?.message||"").includes("timeout")?"انتهت مهلة الاتصال، حاول مرة أخرى":"تعذر تسجيل الدخول";
   }finally{
-    if($("driverApp").hidden){
-      $("driverLoginBtn").disabled=false;
-    }
+    $("driverLoginBtn").disabled=false;
   }
 }
-$("driverLoginBtn").onclick=loginDriver;$("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")loginDriver()});
-$("driverLogoutBtn").onclick=async()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);try{await remove(ref(db,"sessions/"+uid))}catch(e){}await signOut(auth);location.reload()};
-
-async function ensureAnonymous(){
-  if(auth.currentUser){
-    uid=auth.currentUser.uid;
-    return auth.currentUser;
-  }
-  $("driverLoginMsg").textContent="جاري الاتصال بـ Firebase...";
-  const cred=await withTimeout(signInAnonymously(auth),10000);
-  uid=cred.user.uid;
-  return cred.user;
-}
+$("driverLoginBtn").onclick=login;
+$("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")login()});
 
 onAuthStateChanged(auth,async user=>{
-  if(!user){
-    $("driverLoginBtn").disabled=false;
-    $("driverLoginMsg").textContent="";
-    return;
-  }
-  uid=user.uid;
-  $("driverDebug").textContent="متصل بالنظام";
-  const opened=await unlockWithSession();
-  if(opened)return;
-  $("driverLoginBtn").disabled=false;
-  $("driverLoginMsg").textContent="";
-});
-
-(async()=>{
-  try{
-    await ensureAnonymous();
-    $("driverLoginBtn").disabled=false;
-    $("driverLoginMsg").textContent="";
+  if(user){
+    uid=user.uid;
     $("driverDebug").textContent="متصل بالنظام";
-  }catch(e){
-    console.error("initial auth",e);
-    $("driverLoginBtn").disabled=false;
-    $("driverLoginMsg").textContent="تعذر الاتصال بـ Firebase — اضغط دخول للمحاولة";
-    $("driverDebug").textContent="غير متصل";
+    await checkExisting();
+  }else{
+    try{await ensureAnonymous();$("driverDebug").textContent="متصل بالنظام"}catch(e){$("driverDebug").textContent="تعذر الاتصال بالنظام"}
   }
-})();
-
-function selectPoint(lat,lng){orderLat=lat;orderLng=lng;localStorage.setItem("orderLat",lat);localStorage.setItem("orderLng",lng);if(orderMarker)orderMarker.setLatLng([lat,lng]);else orderMarker=L.marker([lat,lng]).addTo(orderMap);$("selectedLocation").textContent="تم تحديد الموقع: "+lat.toFixed(5)+", "+lng.toFixed(5);orderMap.panTo([lat,lng]);saveLive()}
-function initOrderMap(){if(orderMap)return;orderMap=L.map("orderMap").setView([30.50,47.78],12);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(orderMap);orderMap.on("click",e=>selectPoint(e.latlng.lat,e.latlng.lng));if(orderLat&&orderLng)selectPoint(orderLat,orderLng)}
-function setMode(mode){locationMode=mode;localStorage.setItem("locationMode",mode);$("textMode").classList.toggle("active",mode==="text");$("mapMode").classList.toggle("active",mode==="map");$("textLocationBox").hidden=mode!=="text";$("mapLocationBox").hidden=mode!=="map";if(mode==="map"){initOrderMap();setTimeout(()=>orderMap.invalidateSize(),100)}saveLive()}
-function renderStatusButtons(){document.querySelectorAll("[data-order-status]").forEach(btn=>btn.classList.toggle("active",btn.dataset.orderStatus===orderStatus))}
-async function setOrderStatus(next){orderStatus=next;if(next==="on_route"&&!deliveryStartedAt)deliveryStartedAt=Date.now();if(next==="delivered"){const deliveredAt=Date.now(),snapshot={...values(),id:uid,deliveredAt,durationMs:deliveryStartedAt?deliveredAt-deliveryStartedAt:null};if(order.value.trim())await set(push(ref(db,"deliveryHistory/"+uid)),snapshot)}renderStatusButtons();await saveLive();if(next==="delivered")setTimeout(async()=>{order.value="";place.value="";orderStatus="received";deliveryStartedAt=null;orderLat=null;orderLng=null;localStorage.removeItem("orderLat");localStorage.removeItem("orderLng");renderStatusButtons();saveLocal();if(watchId!==null)await update(ref(db,"drivers/"+uid),{...values(),updatedAt:Date.now()})},700)}
-
-$("textMode").onclick=()=>setMode("text");$("mapMode").onclick=()=>setMode("map");$("myLocationBtn").onclick=()=>navigator.geolocation.getCurrentPosition(p=>selectPoint(p.coords.latitude,p.coords.longitude),()=>alert("تعذر تحديد موقعك"),{enableHighAccuracy:true});document.querySelectorAll("[data-order-status]").forEach(btn=>btn.onclick=()=>setOrderStatus(btn.dataset.orderStatus));setMode(locationMode);renderStatusButtons();
-
-start.onclick=()=>{
-  if(!authReady||!uid)return alert("سجل الدخول بكود الدلفري أولاً");
-  if(locationMode==="map"&&order.value.trim()&&(!orderLat||!orderLng))return alert("حدد مكان الطلب على الخريطة");
-  if(!navigator.geolocation)return alert("الجهاز لا يدعم تحديد الموقع");
-  saveLocal();const driverRef=ref(db,"drivers/"+uid);onDisconnect(driverRef).update({online:false,shift:false,updatedAt:Date.now()});start.disabled=true;stop.disabled=false;setShiftStatus("جاري تحديد الموقع...");
-  watchId=navigator.geolocation.watchPosition(async p=>{const now=Date.now(),d={id:uid,...values(),lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),speed:p.coords.speed||0,heading:p.coords.heading||0,online:true,shift:true,updatedAt:now};await set(driverRef,d);setShiftStatus("في الدوام — التتبع يعمل",true);$("lastUpdate").textContent=new Date(now).toLocaleTimeString("ar-IQ");$("coords").textContent=`الموقع: ${d.lat.toFixed(6)}, ${d.lng.toFixed(6)}`},e=>{setShiftStatus("تعذر الحصول على الموقع");alert("اسمح باستخدام الموقع ثم حاول مجددًا. "+e.message);start.disabled=false;stop.disabled=true},{enableHighAccuracy:true,maximumAge:3000,timeout:15000});
-};
-[order,place].forEach(el=>el.onchange=saveLive);
-stop.onclick=async()=>{if(watchId!==null)navigator.geolocation.clearWatch(watchId);watchId=null;await update(ref(db,"drivers/"+uid),{...values(),online:false,shift:false,updatedAt:Date.now()});setShiftStatus("خارج الدوام");start.disabled=false;stop.disabled=true};
-setInterval(()=>{if(!deliveryStartedAt||orderStatus==="delivered"){deliveryTimer.textContent="—";return}deliveryTimer.textContent=Math.floor((Date.now()-deliveryStartedAt)/60000)+" دقيقة"},1000);
+});
 </script>
 </body>
 </html>
