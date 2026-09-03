@@ -12,15 +12,28 @@
 <main class="container">
   <div class="topbar">
     <div>
-      <h1>لوحة المطعم 📍</h1>
-      <div class="muted">متابعة مواقع الدلفري مباشرة</div>
+      <div class="badge">لوحة الإدارة</div>
+      <h1>متابعة الدلفري 📍</h1>
+      <div class="muted">مواقع السائقين مباشرة في مكان واحد</div>
     </div>
-    <a href="driver.html" class="btn btn-dark">صفحة الدلفري</a>
+    <a href="driver.html" class="btn btn-dark">فتح صفحة الدلفري</a>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card"><span>🟢 في الدوام</span><strong id="onlineCount">0</strong></div>
+    <div class="summary-card"><span>⚪ خارج الدوام</span><strong id="offlineCount">0</strong></div>
+    <div class="summary-card"><span>🛵 إجمالي الدلفري</span><strong id="totalCount">0</strong></div>
   </div>
 
   <section class="card">
     <div id="setupWarning" class="warning" hidden>لم يتم ربط Firebase بعد.</div>
     <div id="map"></div>
+
+    <div class="section-title">
+      <h2>الدلفريات</h2>
+      <button id="fitAllBtn" class="btn btn-dark btn-small">عرض الجميع على الخريطة</button>
+    </div>
+
     <div id="driverList" class="driver-list"></div>
   </section>
 </main>
@@ -38,46 +51,115 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 const list = document.getElementById("driverList");
+const onlineCount = document.getElementById("onlineCount");
+const offlineCount = document.getElementById("offlineCount");
+const totalCount = document.getElementById("totalCount");
+const fitAllBtn = document.getElementById("fitAllBtn");
 const markers = {};
+let currentActivePoints = [];
 let firstFit = true;
+
+function markerIcon(name, active) {
+  return L.divIcon({
+    className: "driver-marker-wrap",
+    html: `<div class="driver-marker ${active ? "active" : "inactive"}"><span>🛵</span><b>${name || "دلفري"}</b></div>`,
+    iconSize: [110,44],
+    iconAnchor: [55,38]
+  });
+}
+
+function focusDriver(id) {
+  const marker = markers[id];
+  if (!marker) return;
+  map.setView(marker.getLatLng(), 17, {animate:true});
+  marker.openPopup();
+}
+
+fitAllBtn.addEventListener("click", () => {
+  if (currentActivePoints.length) {
+    map.fitBounds(currentActivePoints, {padding:[45,45], maxZoom:16});
+  }
+});
 
 if (!firebaseReady) {
   document.getElementById("setupWarning").hidden = false;
   list.innerHTML = '<div class="driver-item">أكمل ربط Firebase أولاً حتى تظهر المواقع المباشرة.</div>';
 } else {
   const db = getDatabase(initializeApp(firebaseConfig));
+
   onValue(ref(db, "drivers"), snap => {
     const drivers = snap.val() || {};
+    const entries = Object.entries(drivers);
     list.innerHTML = "";
-    const activePoints = [];
+    currentActivePoints = [];
 
-    Object.entries(drivers).forEach(([id,d]) => {
+    let online = 0;
+
+    entries.sort((a,b) => {
+      const A = a[1], B = b[1];
+      const aActive = !!(A.online && A.shift && Date.now()-(A.updatedAt||0)<90000);
+      const bActive = !!(B.online && B.shift && Date.now()-(B.updatedAt||0)<90000);
+      if (aActive !== bActive) return aActive ? -1 : 1;
+      return (B.updatedAt||0) - (A.updatedAt||0);
+    });
+
+    entries.forEach(([id,d]) => {
       const age = Date.now() - (d.updatedAt || 0);
-      const active = !!(d.online && age < 90000 && typeof d.lat==="number" && typeof d.lng==="number");
+      const hasLocation = typeof d.lat==="number" && typeof d.lng==="number";
+      const active = !!(d.online && d.shift && age < 90000 && hasLocation);
+      if (active) online++;
 
       const item = document.createElement("div");
-      item.className = "driver-item";
+      item.className = "driver-item driver-row";
       item.innerHTML = `
-        <strong>${d.name || "دلفري"}</strong>
-        <div>الطلب: ${d.orderId || "-"}</div>
-        <div class="small muted">${active ? "🟢 متصل الآن" : "⚪ غير متصل"} — آخر تحديث: ${d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString("ar-IQ") : "-"}</div>
+        <div class="driver-main">
+          <div class="driver-title">
+            <span class="presence ${active ? "online" : "offline"}"></span>
+            <strong>${d.name || "دلفري"}</strong>
+          </div>
+          <div class="driver-meta">
+            <span>الطلب: <b>${d.orderId || "لا يوجد"}</b></span>
+            <span>${active ? "متصل الآن" : "خارج الدوام"}</span>
+          </div>
+          <div class="small muted">آخر تحديث: ${d.updatedAt ? new Date(d.updatedAt).toLocaleString("ar-IQ") : "—"}</div>
+        </div>
+        <button class="btn btn-dark btn-small focus-btn" ${hasLocation ? "" : "disabled"}>عرض الموقع</button>
       `;
+
+      item.querySelector(".focus-btn").addEventListener("click", () => focusDriver(id));
       list.appendChild(item);
 
-      if (active) {
-        activePoints.push([d.lat,d.lng]);
-        if (!markers[id]) markers[id] = L.marker([d.lat,d.lng]).addTo(map);
-        else markers[id].setLatLng([d.lat,d.lng]);
-        markers[id].bindPopup(`<b>${d.name || "دلفري"}</b><br>طلب ${d.orderId || "-"}`);
+      if (hasLocation) {
+        if (!markers[id]) {
+          markers[id] = L.marker([d.lat,d.lng], {icon:markerIcon(d.name, active)}).addTo(map);
+        } else {
+          markers[id].setLatLng([d.lat,d.lng]);
+          markers[id].setIcon(markerIcon(d.name, active));
+        }
+
+        markers[id].bindPopup(`
+          <div dir="rtl" style="min-width:150px">
+            <b>${d.name || "دلفري"}</b><br>
+            الحالة: ${active ? "في الدوام" : "خارج الدوام"}<br>
+            الطلب: ${d.orderId || "لا يوجد"}<br>
+            آخر تحديث: ${d.updatedAt ? new Date(d.updatedAt).toLocaleTimeString("ar-IQ") : "—"}
+          </div>
+        `);
+
+        if (active) currentActivePoints.push([d.lat,d.lng]);
       }
     });
 
-    if (!Object.keys(drivers).length) {
-      list.innerHTML = '<div class="driver-item">لا توجد مواقع مرسلة حتى الآن.</div>';
+    onlineCount.textContent = online;
+    offlineCount.textContent = Math.max(entries.length - online, 0);
+    totalCount.textContent = entries.length;
+
+    if (!entries.length) {
+      list.innerHTML = '<div class="driver-item">لا يوجد دلفري مسجل حتى الآن.</div>';
     }
 
-    if (firstFit && activePoints.length) {
-      map.fitBounds(activePoints, {padding:[40,40], maxZoom:16});
+    if (firstFit && currentActivePoints.length) {
+      map.fitBounds(currentActivePoints, {padding:[45,45], maxZoom:16});
       firstFit = false;
     }
   });
