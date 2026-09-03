@@ -7,7 +7,7 @@
       ".read": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
       ".write": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
       "$code": {
-        ".read": "auth != null && (root.child('sessions').child(auth.uid).child('code').val() === $code || root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin')"
+        ".read": "auth != null"
       }
     },
 
