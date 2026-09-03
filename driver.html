@@ -1,166 +1,19 @@
-<!doctype html>
-<html lang="ar" dir="rtl">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#0f172a">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css">
-  <title>تطبيق الدلفري</title>
-</head>
-<body>
-<main class="container narrow">
-  <section class="card">
-    <div class="driver-head">
-      <div>
-        <div class="badge">تطبيق الدلفري</div>
-        <h1>الدوام والتتبع 🛵</h1>
-      </div>
-      <div id="liveDot" class="live-dot off"></div>
-    </div>
-
-    <p class="muted">اكتب اسمك مرة واحدة، ثم اضغط بدء الدوام. سيظهر موقعك مباشرة في لوحة المطعم.</p>
-
-    <label>اسم الدلفري</label>
-    <input id="driverName" autocomplete="name" placeholder="مثال: أحمد">
-
-    <label>رقم الطلب الحالي <span class="muted small">(اختياري)</span></label>
-    <input id="orderId" inputmode="numeric" placeholder="مثال: 1052">
-
-    <div class="grid">
-      <button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button>
-      <button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button>
-    </div>
-
-    <div id="status" class="status">الحالة: خارج الدوام</div>
-
-    <div class="mini-grid">
-      <div class="stat-card">
-        <span class="muted small">آخر تحديث</span>
-        <strong id="lastUpdate">—</strong>
-      </div>
-      <div class="stat-card">
-        <span class="muted small">دقة GPS</span>
-        <strong id="accuracy">—</strong>
-      </div>
-    </div>
-
-    <div id="coords" class="muted small coords"></div>
-    <div class="note">مهم: أبقِ الصفحة مفتوحة أثناء الدوام. المتصفح قد يوقف التتبع عند قفل الشاشة أو وضع التطبيق في الخلفية.</div>
-  </section>
-</main>
-
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#07111f"><link rel="manifest" href="manifest.webmanifest"><link rel="stylesheet" href="style.css"><title>تطبيق الدلفري</title></head><body><main class="container narrow"><section class="card"><div class="driver-head"><div><div class="badge">تطبيق الدلفري</div><h1>الدوام والتتبع 🛵</h1></div><div id="liveDot" class="live-dot off"></div></div><p class="muted">أدخل بياناتك والطلب الحالي، ثم ابدأ الدوام والتتبع.</p>
+<label>اسم الدلفري</label><input id="driverName" placeholder="مثال: أحمد">
+<label>رقم الدلفري / الهاتف</label><input id="phone" inputmode="tel" placeholder="مثال: 07701234567">
+<label>رقم الطلب الحالي</label><input id="orderId" placeholder="مثال: 1052">
+<label>مكان الطلب / عنوان الزبون</label><input id="orderLocation" placeholder="مثال: حي الجمعة - قرب المدرسة">
+<div class="grid"><button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button><button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button></div><div id="status" class="status">الحالة: خارج الدوام</div><div class="mini-grid"><div class="stat-card"><span class="muted small">آخر تحديث</span><strong id="lastUpdate">—</strong></div><div class="stat-card"><span class="muted small">دقة GPS</span><strong id="accuracy">—</strong></div></div><div id="coords" class="muted small coords"></div><div class="note">أبقِ الصفحة مفتوحة أثناء الدوام لضمان استمرار تحديث الموقع.</div></section></main>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getDatabase, ref, set, update, onDisconnect } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig, firebaseReady } from "./firebase-config.js";
-
-const statusEl = document.getElementById("status");
-const coordsEl = document.getElementById("coords");
-const driverName = document.getElementById("driverName");
-const orderId = document.getElementById("orderId");
-const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
-const lastUpdate = document.getElementById("lastUpdate");
-const accuracy = document.getElementById("accuracy");
-const liveDot = document.getElementById("liveDot");
-
-driverName.value = localStorage.getItem("driverName") || "";
-orderId.value = localStorage.getItem("orderId") || "";
-
-let watchId = null;
-let driverId = localStorage.getItem("driverId");
-if (!driverId) {
-  driverId = "drv_" + crypto.randomUUID().slice(0,8);
-  localStorage.setItem("driverId", driverId);
-}
-
-function setStatus(text, live=false) {
-  statusEl.textContent = "الحالة: " + text;
-  liveDot.classList.toggle("off", !live);
-  liveDot.classList.toggle("on", live);
-}
-
-if (!firebaseReady) {
-  setStatus("بانتظار ربط Firebase");
-  startBtn.disabled = true;
-}
-
-let db = null;
-if (firebaseReady) db = getDatabase(initializeApp(firebaseConfig));
-
-startBtn.addEventListener("click", () => {
-  const name = driverName.value.trim();
-  const order = orderId.value.trim();
-
-  if (!name) return alert("اكتب اسم الدلفري");
-  if (!navigator.geolocation) return alert("هذا الجهاز لا يدعم تحديد الموقع");
-
-  localStorage.setItem("driverName", name);
-  localStorage.setItem("orderId", order);
-
-  const driverRef = ref(db, "drivers/" + driverId);
-  onDisconnect(driverRef).update({ online:false, shift:false, updatedAt:Date.now() });
-
-  driverName.disabled = true;
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
-  setStatus("جاري تحديد الموقع...", false);
-
-  watchId = navigator.geolocation.watchPosition(async (pos) => {
-    const now = Date.now();
-    const data = {
-      id: driverId,
-      name,
-      orderId: order,
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
-      accuracy: Math.round(pos.coords.accuracy || 0),
-      speed: pos.coords.speed || 0,
-      heading: pos.coords.heading || 0,
-      online: true,
-      shift: true,
-      updatedAt: now
-    };
-
-    await set(driverRef, data);
-    setStatus("في الدوام — التتبع يعمل", true);
-    lastUpdate.textContent = new Date(now).toLocaleTimeString("ar-IQ");
-    accuracy.textContent = data.accuracy + " م";
-    coordsEl.textContent = `الموقع: ${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`;
-  }, (err) => {
-    setStatus("تعذر الحصول على الموقع", false);
-    alert("اسمح للموقع باستخدام GPS ثم حاول مجددًا. " + err.message);
-    driverName.disabled = false;
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-  }, { enableHighAccuracy:true, maximumAge:3000, timeout:15000 });
-});
-
-orderId.addEventListener("change", async () => {
-  const order = orderId.value.trim();
-  localStorage.setItem("orderId", order);
-  if (db && watchId !== null) {
-    await update(ref(db, "drivers/" + driverId), { orderId:order, updatedAt:Date.now() });
-  }
-});
-
-stopBtn.addEventListener("click", async () => {
-  if (watchId !== null) navigator.geolocation.clearWatch(watchId);
-  watchId = null;
-
-  await update(ref(db, "drivers/" + driverId), {
-    online:false,
-    shift:false,
-    orderId:orderId.value.trim(),
-    updatedAt:Date.now()
-  });
-
-  setStatus("خارج الدوام", false);
-  driverName.disabled = false;
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
-});
-</script>
-</body>
-</html>
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";import {getDatabase,ref,set,update,onDisconnect} from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";import {firebaseConfig,firebaseReady} from "./firebase-config.js";
+const $=id=>document.getElementById(id),name=$("driverName"),phone=$("phone"),order=$("orderId"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),status=$("status"),dot=$("liveDot");["driverName","phone","orderId","orderLocation"].forEach(k=>$(k).value=localStorage.getItem(k)||"");
+let wid=null,id=localStorage.getItem("driverId");if(!id){id="drv_"+crypto.randomUUID().slice(0,8);localStorage.setItem("driverId",id)}
+const db=firebaseReady?getDatabase(initializeApp(firebaseConfig)):null;function st(t,on=false){status.textContent="الحالة: "+t;dot.className="live-dot "+(on?"on":"off")}
+if(!firebaseReady){st("بانتظار ربط Firebase");start.disabled=true}
+function vals(){return{name:name.value.trim(),phone:phone.value.trim(),orderId:order.value.trim(),orderLocation:place.value.trim()}}
+function save(){Object.entries(vals()).forEach(([k,v])=>localStorage.setItem(k,v))}
+start.onclick=()=>{if(!name.value.trim())return alert("اكتب اسم الدلفري");if(!navigator.geolocation)return alert("الجهاز لا يدعم تحديد الموقع");save();const r=ref(db,"drivers/"+id);onDisconnect(r).update({online:false,shift:false,updatedAt:Date.now()});name.disabled=true;start.disabled=true;stop.disabled=false;st("جاري تحديد الموقع...");
+wid=navigator.geolocation.watchPosition(async p=>{const now=Date.now(),v=vals(),d={id,...v,lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),speed:p.coords.speed||0,heading:p.coords.heading||0,online:true,shift:true,updatedAt:now};await set(r,d);st("في الدوام — التتبع يعمل",true);$("lastUpdate").textContent=new Date(now).toLocaleTimeString("ar-IQ");$("accuracy").textContent=d.accuracy+" م";$("coords").textContent=`الموقع: ${d.lat.toFixed(6)}, ${d.lng.toFixed(6)}`},e=>{st("تعذر الحصول على الموقع");alert("اسمح باستخدام الموقع ثم حاول مجددًا. "+e.message);name.disabled=false;start.disabled=false;stop.disabled=true},{enableHighAccuracy:true,maximumAge:3000,timeout:15000})};
+[phone,order,place].forEach(el=>el.onchange=async()=>{save();if(db&&wid!==null)await update(ref(db,"drivers/"+id),{...vals(),updatedAt:Date.now()})});
+stop.onclick=async()=>{if(wid!==null)navigator.geolocation.clearWatch(wid);wid=null;await update(ref(db,"drivers/"+id),{...vals(),online:false,shift:false,updatedAt:Date.now()});st("خارج الدوام");name.disabled=false;start.disabled=false;stop.disabled=true};
+</script></body></html>
