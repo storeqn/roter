@@ -260,11 +260,6 @@ async function loadAccess(){
   if(!(v&&v.enabled===true&&v.role==="driver"))return false;
   name.value=v.name||"";phone.value=v.phone||"";$("identityName").textContent=v.name||"دلفري";$("identityPhone").textContent=v.phone||"";
   loadLocalForDriver();
-  try{
-    const ds=await get(ref(db,"drivers/"+uid));
-    const dv=ds.val();
-    if(dv&&Array.isArray(dv.activeOrders)&&dv.activeOrders.length)activeOrders=dv.activeOrders;
-  }catch(e){}
   saveLocal();renderActiveOrders();
   authReady=true;
   if(window.AndroidBridge){
