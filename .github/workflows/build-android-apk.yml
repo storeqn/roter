@@ -20,12 +20,31 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Prepare Yasri app icon
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          mkdir -p android-app/app/src/main/res/mipmap-mdpi
+          mkdir -p android-app/app/src/main/res/mipmap-hdpi
+          mkdir -p android-app/app/src/main/res/mipmap-xhdpi
+          mkdir -p android-app/app/src/main/res/mipmap-xxhdpi
+          mkdir -p android-app/app/src/main/res/mipmap-xxxhdpi
+          rsvg-convert yasri-delivery-logo.svg -w 48 -h 48 -o android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          rsvg-convert yasri-delivery-logo.svg -w 72 -h 72 -o android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          rsvg-convert yasri-delivery-logo.svg -w 96 -h 96 -o android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          rsvg-convert yasri-delivery-logo.svg -w 144 -h 144 -o android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          rsvg-convert yasri-delivery-logo.svg -w 192 -h 192 -o android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          cp android-app/app/src/main/res/mipmap-mdpi/ic_launcher.png android-app/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+          cp android-app/app/src/main/res/mipmap-hdpi/ic_launcher.png android-app/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+          cp android-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png android-app/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+          cp android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png android-app/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+          cp android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
       - name: Build debug APK
         working-directory: android-app
         run: gradle assembleDebug
       - name: Rename APK
-        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk DeliveryDriver.apk
+        run: cp android-app/app/build/outputs/apk/debug/app-debug.apk YasriDeliveryDriver.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: DeliveryDriver-APK
-          path: DeliveryDriver.apk
+          name: YasriDeliveryDriver-APK
+          path: YasriDeliveryDriver.apk
