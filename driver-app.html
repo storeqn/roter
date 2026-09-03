@@ -106,7 +106,7 @@ body{min-height:100vh}
   <div class="grid"><button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button><button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button></div>
   <button id="returnBtn" class="btn btn-dark full" style="margin-top:10px" disabled>↩️ العودة للمطعم</button>
   <div id="status" class="status">الحالة: خارج الدوام</div>
-  <div class="mini-grid"><div class="stat-card"><span class="muted small">آخر تحديث</span><strong id="lastUpdate">—</strong></div><div class="stat-card"><span class="muted small">مدة التوصيل</span><strong id="deliveryTimer">—</strong></div></div>
+  <div class="mini-grid"><div class="stat-card"><span class="muted small">آخر تحديث</span><strong id="lastUpdate">—</strong></div><div class="stat-card"><span class="muted small">مدة التوصيل</span><strong id="deliveryTimer">—</strong></div><div class="stat-card"><span class="muted small">النقد معي</span><strong id="cashWithDriver">0 د.ع</strong></div></div>
   <div id="coords" class="muted small coords"></div><div class="note">على تطبيق أندرويد يستمر إرسال الموقع حتى عند قفل الشاشة بعد بدء الدوام.</div>
 </section>
 </main>
@@ -119,15 +119,14 @@ import { getDatabase, ref, get, set, update, remove, onDisconnect, push, onValue
 import { firebaseConfig } from "./firebase-config.js";
 
 const $=id=>document.getElementById(id), app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
-const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),orderAmount=$("orderAmount"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),returnBtn=$("returnBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer");
-let uid=null,code=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null;
+const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),orderAmount=$("orderAmount"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),returnBtn=$("returnBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer"),cashWithDriver=$("cashWithDriver");
+let uid=null,code=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null,trackingStarted=false,cashCollected=Number(localStorage.getItem("cashCollected")||0)||0;
 let orderLat=null,orderLng=null,locationMode="text",paymentMode="cash",returningToRestaurant=false;
 let activeOrders=[];
 try{activeOrders=JSON.parse(localStorage.getItem("activeOrders")||"[]");if(!Array.isArray(activeOrders))activeOrders=[]}catch(e){activeOrders=[]}
 
 function driverState(){
-  if(!authReady)return "offline";
-  if(watchId===null&&!window.AndroidBridge)return "offline";
+  if(!authReady||!trackingStarted)return "offline";
   if(activeOrders.some(o=>o.status==="on_route"))return "delivering";
   if(returningToRestaurant)return "returning";
   return "available";
@@ -157,7 +156,7 @@ function values(){
     returningToRestaurant
   };
 }
-function saveLocal(){localStorage.setItem("activeOrders",JSON.stringify(activeOrders))}
+function saveLocal(){localStorage.setItem("activeOrders",JSON.stringify(activeOrders));localStorage.setItem("cashCollected",String(cashCollected));if(cashWithDriver)cashWithDriver.textContent=cashCollected.toLocaleString("ar-IQ")+" د.ع"}
 async function saveLive(){
   saveLocal();
   const meta={...values(),code,updatedAt:Date.now()};
@@ -209,6 +208,7 @@ async function finishOrderDelivery(key){
   const deliveredAt=Date.now();
   const snapshot={...o,name:name.value.trim(),phone:phone.value.trim(),id:uid,code,deliveredAt,durationMs:o.deliveryStartedAt?deliveredAt-o.deliveryStartedAt:null,status:"delivered"};
   if(uid)await set(push(ref(db,"deliveryHistory/"+uid)),snapshot);
+  if(o.paymentMode==="cash")cashCollected+=Number(o.amount)||0;
   activeOrders.splice(idx,1);
   if(!activeOrders.length)returnBtn.disabled=false;
   refreshAutoState();renderActiveOrders(); await saveLive();
@@ -290,7 +290,7 @@ $("myLocationBtn").onclick=()=>navigator.geolocation.getCurrentPosition(p=>selec
 $("addOrderBtn").onclick=addOrder;
 returnBtn.onclick=async()=>{if(activeOrders.length)return alert("أنهِ الطلبات الحالية أولاً");returningToRestaurant=true;returnBtn.disabled=true;refreshAutoState();await saveLive();};
 setMode("text");
-renderActiveOrders();
+saveLocal();renderActiveOrders();
 
 start.onclick=async()=>{
   if(!authReady||!uid)return alert("انتظر لحظة حتى يكتمل تسجيل الدخول");
@@ -307,7 +307,7 @@ start.onclick=async()=>{
   }else{
     onDisconnect(driverRef).update({online:false,shift:false,updatedAt:Date.now()});
   }
-  start.disabled=true;stop.disabled=false;
+  trackingStarted=true;start.disabled=true;stop.disabled=false;
   setShiftStatus(nativeTracking?"في الدوام — التتبع بالخلفية يعمل":"جاري تحديد الموقع...",nativeTracking);
   watchId=navigator.geolocation.watchPosition(async p=>{
     const now=Date.now(),d={id:uid,code,...values(),lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),speed:p.coords.speed||0,heading:p.coords.heading||0,online:true,shift:true,updatedAt:now};
@@ -328,7 +328,7 @@ stop.onclick=async()=>{
   }else{
     await update(ref(db,"drivers/"+uid),{...values(),code,online:false,shift:false,updatedAt:Date.now()});
   }
-  returningToRestaurant=false;setShiftStatus("⚫ خارج الدوام");start.disabled=false;stop.disabled=true;returnBtn.disabled=true;
+  trackingStarted=false;returningToRestaurant=false;setShiftStatus("⚫ خارج الدوام");start.disabled=false;stop.disabled=true;returnBtn.disabled=true;
 };
 setInterval(renderActiveOrders,15000);
 </script>
