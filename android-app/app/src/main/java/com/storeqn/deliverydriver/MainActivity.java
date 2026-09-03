@@ -2,13 +2,16 @@ package com.storeqn.deliverydriver;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.content.pm.PackageManager;
 
 public class MainActivity extends Activity {
     private static final int LOCATION_REQUEST = 1001;
@@ -36,6 +39,7 @@ public class MainActivity extends Activity {
         settings.setSupportZoom(false);
         settings.setTextZoom(100);
 
+        webView.addJavascriptInterface(new AndroidBridge(this), "AndroidBridge");
         webView.setWebViewClient(new WebViewClient());
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
@@ -53,32 +57,68 @@ public class MainActivity extends Activity {
             }
         });
 
-        if (savedInstanceState == null) {
-            webView.loadUrl(START_URL);
-        } else {
-            webView.restoreState(savedInstanceState);
+        if (savedInstanceState == null) webView.loadUrl(START_URL);
+        else webView.restoreState(savedInstanceState);
+    }
+
+    public class AndroidBridge {
+        private final Context context;
+        AndroidBridge(Context context){ this.context=context; }
+
+        @JavascriptInterface
+        public boolean isNativeBackgroundTrackingAvailable(){ return true; }
+
+        @JavascriptInterface
+        public void startTracking(String code, String name, String phone, String metaJson){
+            runOnUiThread(() -> {
+                if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                    requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_REQUEST);
+                    return;
+                }
+                Intent i=new Intent(context, LocationForegroundService.class);
+                i.setAction("START");
+                i.putExtra("code",code);
+                i.putExtra("name",name);
+                i.putExtra("phone",phone);
+                i.putExtra("meta",metaJson);
+                startForegroundService(i);
+            });
+        }
+
+        @JavascriptInterface
+        public void updateMeta(String metaJson){
+            Intent i=new Intent(context, LocationForegroundService.class);
+            i.setAction("META");
+            i.putExtra("meta",metaJson);
+            startService(i);
+        }
+
+        @JavascriptInterface
+        public void stopTracking(){
+            Intent i=new Intent(context, LocationForegroundService.class);
+            i.setAction("STOP");
+            startService(i);
         }
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == LOCATION_REQUEST && pendingGeoCallback != null) {
-            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
-            pendingGeoCallback.invoke(pendingGeoOrigin, granted, false);
-            pendingGeoCallback = null;
-            pendingGeoOrigin = null;
+    public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
+        super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==LOCATION_REQUEST && pendingGeoCallback!=null){
+            boolean granted=grantResults.length>0 && grantResults[0]==PackageManager.PERMISSION_GRANTED;
+            pendingGeoCallback.invoke(pendingGeoOrigin,granted,false);
+            pendingGeoCallback=null; pendingGeoOrigin=null;
         }
     }
 
     @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
+    public void onBackPressed(){
+        if(webView!=null && webView.canGoBack()) webView.goBack();
         else super.onBackPressed();
     }
 
     @Override
-    protected void onSaveInstanceState(Bundle outState) {
+    protected void onSaveInstanceState(Bundle outState){
         webView.saveState(outState);
         super.onSaveInstanceState(outState);
     }
