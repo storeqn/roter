@@ -6,27 +6,47 @@
   <meta name="theme-color" content="#0f172a">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
-  <title>صفحة الدلفري</title>
+  <title>تطبيق الدلفري</title>
 </head>
 <body>
-<main class="container">
+<main class="container narrow">
   <section class="card">
-    <h1>صفحة الدلفري 🛵</h1>
-    <p class="muted">اكتب الاسم ورقم الطلب ثم اضغط بدء التتبع واسمح باستخدام الموقع.</p>
-
-    <label>اسم الدلفري</label>
-    <input id="driverName" placeholder="مثال: أحمد">
-
-    <label>رقم الطلب</label>
-    <input id="orderId" placeholder="مثال: 1052">
-
-    <div class="grid">
-      <button id="startBtn" class="btn btn-primary">بدء التتبع</button>
-      <button id="stopBtn" class="btn btn-danger" disabled>إيقاف التتبع</button>
+    <div class="driver-head">
+      <div>
+        <div class="badge">تطبيق الدلفري</div>
+        <h1>الدوام والتتبع 🛵</h1>
+      </div>
+      <div id="liveDot" class="live-dot off"></div>
     </div>
 
-    <div id="status" class="status">الحالة: متوقف</div>
-    <div id="coords" class="muted small"></div>
+    <p class="muted">اكتب اسمك مرة واحدة، ثم اضغط بدء الدوام. سيظهر موقعك مباشرة في لوحة المطعم.</p>
+
+    <label>اسم الدلفري</label>
+    <input id="driverName" autocomplete="name" placeholder="مثال: أحمد">
+
+    <label>رقم الطلب الحالي <span class="muted small">(اختياري)</span></label>
+    <input id="orderId" inputmode="numeric" placeholder="مثال: 1052">
+
+    <div class="grid">
+      <button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button>
+      <button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button>
+    </div>
+
+    <div id="status" class="status">الحالة: خارج الدوام</div>
+
+    <div class="mini-grid">
+      <div class="stat-card">
+        <span class="muted small">آخر تحديث</span>
+        <strong id="lastUpdate">—</strong>
+      </div>
+      <div class="stat-card">
+        <span class="muted small">دقة GPS</span>
+        <strong id="accuracy">—</strong>
+      </div>
+    </div>
+
+    <div id="coords" class="muted small coords"></div>
+    <div class="note">مهم: أبقِ الصفحة مفتوحة أثناء الدوام. المتصفح قد يوقف التتبع عند قفل الشاشة أو وضع التطبيق في الخلفية.</div>
   </section>
 </main>
 
@@ -41,6 +61,9 @@ const driverName = document.getElementById("driverName");
 const orderId = document.getElementById("orderId");
 const startBtn = document.getElementById("startBtn");
 const stopBtn = document.getElementById("stopBtn");
+const lastUpdate = document.getElementById("lastUpdate");
+const accuracy = document.getElementById("accuracy");
+const liveDot = document.getElementById("liveDot");
 
 driverName.value = localStorage.getItem("driverName") || "";
 orderId.value = localStorage.getItem("orderId") || "";
@@ -52,7 +75,11 @@ if (!driverId) {
   localStorage.setItem("driverId", driverId);
 }
 
-function setStatus(text){ statusEl.textContent = "الحالة: " + text; }
+function setStatus(text, live=false) {
+  statusEl.textContent = "الحالة: " + text;
+  liveDot.classList.toggle("off", !live);
+  liveDot.classList.toggle("on", live);
+}
 
 if (!firebaseReady) {
   setStatus("بانتظار ربط Firebase");
@@ -60,28 +87,28 @@ if (!firebaseReady) {
 }
 
 let db = null;
-if (firebaseReady) {
-  db = getDatabase(initializeApp(firebaseConfig));
-}
+if (firebaseReady) db = getDatabase(initializeApp(firebaseConfig));
 
 startBtn.addEventListener("click", () => {
   const name = driverName.value.trim();
   const order = orderId.value.trim();
+
   if (!name) return alert("اكتب اسم الدلفري");
-  if (!order) return alert("اكتب رقم الطلب");
   if (!navigator.geolocation) return alert("هذا الجهاز لا يدعم تحديد الموقع");
 
   localStorage.setItem("driverName", name);
   localStorage.setItem("orderId", order);
 
   const driverRef = ref(db, "drivers/" + driverId);
-  onDisconnect(driverRef).update({ online:false, updatedAt:Date.now() });
+  onDisconnect(driverRef).update({ online:false, shift:false, updatedAt:Date.now() });
 
+  driverName.disabled = true;
   startBtn.disabled = true;
   stopBtn.disabled = false;
-  setStatus("جاري تحديد الموقع...");
+  setStatus("جاري تحديد الموقع...", false);
 
   watchId = navigator.geolocation.watchPosition(async (pos) => {
+    const now = Date.now();
     const data = {
       id: driverId,
       name,
@@ -92,24 +119,45 @@ startBtn.addEventListener("click", () => {
       speed: pos.coords.speed || 0,
       heading: pos.coords.heading || 0,
       online: true,
-      updatedAt: Date.now()
+      shift: true,
+      updatedAt: now
     };
+
     await set(driverRef, data);
-    setStatus("التتبع يعمل الآن");
-    coordsEl.textContent = `الموقع: ${data.lat.toFixed(6)}, ${data.lng.toFixed(6)} — الدقة: ${data.accuracy}م`;
+    setStatus("في الدوام — التتبع يعمل", true);
+    lastUpdate.textContent = new Date(now).toLocaleTimeString("ar-IQ");
+    accuracy.textContent = data.accuracy + " م";
+    coordsEl.textContent = `الموقع: ${data.lat.toFixed(6)}, ${data.lng.toFixed(6)}`;
   }, (err) => {
-    setStatus("تعذر الحصول على الموقع");
+    setStatus("تعذر الحصول على الموقع", false);
     alert("اسمح للموقع باستخدام GPS ثم حاول مجددًا. " + err.message);
+    driverName.disabled = false;
     startBtn.disabled = false;
     stopBtn.disabled = true;
   }, { enableHighAccuracy:true, maximumAge:3000, timeout:15000 });
 });
 
+orderId.addEventListener("change", async () => {
+  const order = orderId.value.trim();
+  localStorage.setItem("orderId", order);
+  if (db && watchId !== null) {
+    await update(ref(db, "drivers/" + driverId), { orderId:order, updatedAt:Date.now() });
+  }
+});
+
 stopBtn.addEventListener("click", async () => {
   if (watchId !== null) navigator.geolocation.clearWatch(watchId);
   watchId = null;
-  await update(ref(db, "drivers/" + driverId), { online:false, updatedAt:Date.now() });
-  setStatus("تم إيقاف التتبع");
+
+  await update(ref(db, "drivers/" + driverId), {
+    online:false,
+    shift:false,
+    orderId:orderId.value.trim(),
+    updatedAt:Date.now()
+  });
+
+  setStatus("خارج الدوام", false);
+  driverName.disabled = false;
   startBtn.disabled = false;
   stopBtn.disabled = true;
 });
