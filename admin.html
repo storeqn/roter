@@ -9,7 +9,7 @@
 <title>لوحة المطعم</title>
 </head>
 <body>
-<main class="container">
+<main class="container" id="adminApp" hidden>
 <header class="dashboard-head">
   <div><h1>لوحة المطعم 🛵</h1><div class="muted"><span class="presence online"></span> متابعة الدلفرين مباشرة</div></div>
   <button id="logoutBtn" class="btn btn-dark">تسجيل الخروج</button>
@@ -21,10 +21,7 @@
   <div class="summary-card"><span>🟢 في الدوام</span><strong id="onlineCount">0</strong></div>
 </div>
 
-<section class="map-card">
-  <div id="setupWarning" class="warning" hidden>لم يتم ربط Firebase بعد.</div>
-  <div id="map"></div>
-</section>
+<section class="map-card"><div id="map"></div></section>
 
 <section class="drivers-panel">
   <div class="toolbar">
@@ -36,6 +33,17 @@
   <div id="driverList" class="driver-list"></div>
 </section>
 
+<section class="drivers-panel">
+  <div class="section-line"><h2>إدارة الدلفريين والأكواد</h2><span class="muted small">إضافة، تعطيل أو حذف كود الدخول</span></div>
+  <div class="code-form">
+    <input id="newDriverName" placeholder="اسم الدلفري">
+    <input id="newDriverPhone" inputmode="tel" placeholder="رقم الهاتف">
+    <input id="newDriverCode" placeholder="كود الدخول، مثال: 2580">
+    <button id="addDriverCodeBtn" class="btn btn-primary">+ إضافة دلفري</button>
+  </div>
+  <div id="codeList" class="code-list"></div>
+</section>
+
 <section class="drivers-panel history-panel">
   <div class="section-line"><h2>سجل الطلبات المكتملة</h2><span class="muted small">أحدث الطلبات أولاً</span></div>
   <div id="historyList" class="history-list"></div>
@@ -44,228 +52,121 @@
 <div class="muted small auto-note">تتحدث المواقع تلقائياً أثناء عمل التتبع</div>
 </main>
 
+<div id="adminLoading" class="login-shell"><section class="login-card"><div class="login-icon">🔐</div><h2>جاري التحقق من صلاحية الإدارة...</h2></section></div>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getDatabase, ref, onValue, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
-import { firebaseConfig, firebaseReady } from "./firebase-config.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getDatabase, ref, onValue, get, set, update, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { firebaseConfig } from "./firebase-config.js";
 
-const ADMIN_EMAIL = "restaurant-admin@delivery-tracker.local";
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-let authReady = false;
-document.getElementById("logoutBtn").onclick = async () => { await signOut(auth); location.replace("./"); };
-
-const map = L.map("map",{zoomControl:true}).setView([30.50,47.78],12);
+const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getDatabase(app);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let uid=null, initialized=false;
+const map=L.map("map",{zoomControl:true}).setView([30.50,47.78],12);
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
 
-const list = document.getElementById("driverList");
-const historyList = document.getElementById("historyList");
-const search = document.getElementById("searchDriver");
-const markers = {};
-const orderMarkers = {};
-let points = [];
-let dataEntries = [];
-let historyEntries = [];
-let firstFit = true;
-let db = null;
+const list=document.getElementById("driverList"), historyList=document.getElementById("historyList"), search=document.getElementById("searchDriver"), codeList=document.getElementById("codeList");
+const markers={}, orderMarkers={}; let points=[], dataEntries=[], historyEntries=[], codeEntries=[], firstFit=true;
 
-const esc = s => String(s ?? "").replace(/[&<>"']/g,c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function isActive(d){return !!(d.online&&d.shift&&Date.now()-(d.updatedAt||0)<90000&&typeof d.lat==="number"&&typeof d.lng==="number")}
+function orderStatusLabel(s){return {received:"تم الاستلام",on_route:"خرج للتوصيل",arrived:"وصل للزبون",delivered:"تم التسليم"}[s]||"بدون حالة"}
+function scooterIcon(active,late=false){return L.divIcon({className:"scooter-icon-wrap",html:`<div class="scooter-pin ${active?"on":"off"} ${late?"late":""}"><span>🛵</span></div>`,iconSize:[52,52],iconAnchor:[26,26]})}
+function focusDriver(id){if(markers[id]){map.setView(markers[id].getLatLng(),17,{animate:true});markers[id].openPopup()}}
+function focusOrder(id,d){if(typeof d.orderLat==="number"&&typeof d.orderLng==="number"){map.setView([d.orderLat,d.orderLng],17,{animate:true});if(orderMarkers[id])orderMarkers[id].openPopup()}}
+function mapsUrl(d){if(typeof d.orderLat==="number"&&typeof d.orderLng==="number")return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.orderLat+","+d.orderLng)}`;if(d.orderLocation)return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.orderLocation)}`;return ""}
 
-function isActive(d) {
-  return !!(d.online && d.shift && Date.now()-(d.updatedAt||0)<90000 && typeof d.lat==="number" && typeof d.lng==="number");
+async function verifyAdmin(){
+  const ss=await get(ref(db,"sessions/"+uid));
+  if(!ss.exists()) return false;
+  const code=ss.val().code;
+  const cs=await get(ref(db,"accessCodes/"+code));
+  const v=cs.val();
+  return !!(v&&v.enabled===true&&v.role==="admin");
 }
 
-function orderStatusLabel(s) {
-  return {received:"تم الاستلام",on_route:"خرج للتوصيل",arrived:"وصل للزبون",delivered:"تم التسليم"}[s] || "بدون حالة";
-}
-
-function scooterIcon(active,late=false) {
-  return L.divIcon({
-    className:"scooter-icon-wrap",
-    html:`<div class="scooter-pin ${active?"on":"off"} ${late?"late":""}"><span>🛵</span></div>`,
-    iconSize:[52,52],
-    iconAnchor:[26,26]
-  });
-}
-
-function focusDriver(id) {
-  if (!markers[id]) return;
-  map.setView(markers[id].getLatLng(),17,{animate:true});
-  markers[id].openPopup();
-}
-
-function focusOrder(id,d) {
-  if (typeof d.orderLat!=="number" || typeof d.orderLng!=="number") return;
-  map.setView([d.orderLat,d.orderLng],17,{animate:true});
-  if (orderMarkers[id]) orderMarkers[id].openPopup();
-}
-
-function mapsUrl(d) {
-  if (typeof d.orderLat==="number" && typeof d.orderLng==="number") {
-    return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.orderLat+","+d.orderLng)}`;
-  }
-  if (d.orderLocation) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.orderLocation)}`;
-  }
-  return "";
-}
-
-async function deleteDriver(id,name) {
-  if (!db) return;
-  if (!confirm("هل تريد حذف "+(name||"هذا الدلفري")+" من التتبع؟")) return;
+async function deleteDriver(id,name){
+  if(!confirm("هل تريد حذف "+(name||"هذا الدلفري")+" من التتبع؟"))return;
   await remove(ref(db,"drivers/"+id));
-  if (markers[id]) { map.removeLayer(markers[id]); delete markers[id]; }
-  if (orderMarkers[id]) { map.removeLayer(orderMarkers[id]); delete orderMarkers[id]; }
+  if(markers[id]){map.removeLayer(markers[id]);delete markers[id]}
+  if(orderMarkers[id]){map.removeLayer(orderMarkers[id]);delete orderMarkers[id]}
 }
 
-function renderDrivers() {
-  const q = search.value.trim().toLowerCase();
-  list.innerHTML = "";
-  points = [];
-  let online = 0;
-
-  dataEntries.sort((a,b) => Number(isActive(b[1]))-Number(isActive(a[1])) || (b[1].updatedAt||0)-(a[1].updatedAt||0));
-
-  dataEntries.forEach(([id,d]) => {
-    const active = isActive(d);
-    const hasLocation = typeof d.lat==="number" && typeof d.lng==="number";
-    const hasOrderPoint = typeof d.orderLat==="number" && typeof d.orderLng==="number";
-    const late = !!(d.deliveryStartedAt && d.orderStatus!=="delivered" && Date.now()-d.deliveryStartedAt > 45*60000);
-    const minutes = d.deliveryStartedAt ? Math.max(0,Math.floor((Date.now()-d.deliveryStartedAt)/60000)) : null;
-
-    if (active) online++;
-
-    if (hasLocation) {
-      if (!markers[id]) markers[id] = L.marker([d.lat,d.lng],{icon:scooterIcon(active,late)}).addTo(map);
-      else {
-        markers[id].setLatLng([d.lat,d.lng]);
-        markers[id].setIcon(scooterIcon(active,late));
-      }
+function renderDrivers(){
+  const q=search.value.trim().toLowerCase(); list.innerHTML=""; points=[]; let online=0;
+  dataEntries.sort((a,b)=>Number(isActive(b[1]))-Number(isActive(a[1]))||(b[1].updatedAt||0)-(a[1].updatedAt||0));
+  dataEntries.forEach(([id,d])=>{
+    const active=isActive(d), hasLocation=typeof d.lat==="number"&&typeof d.lng==="number", hasOrderPoint=typeof d.orderLat==="number"&&typeof d.orderLng==="number";
+    const late=!!(d.deliveryStartedAt&&d.orderStatus!=="delivered"&&Date.now()-d.deliveryStartedAt>45*60000);
+    const minutes=d.deliveryStartedAt?Math.max(0,Math.floor((Date.now()-d.deliveryStartedAt)/60000)):null;
+    if(active)online++;
+    if(hasLocation){
+      if(!markers[id])markers[id]=L.marker([d.lat,d.lng],{icon:scooterIcon(active,late)}).addTo(map);else{markers[id].setLatLng([d.lat,d.lng]);markers[id].setIcon(scooterIcon(active,late))}
       markers[id].bindTooltip(esc(d.name||"دلفري"),{permanent:true,direction:"top",className:"driver-name-label",offset:[0,-23]});
       markers[id].bindPopup(`<div dir="rtl" class="map-popup"><b>${esc(d.name||"دلفري")}</b><br>📞 ${esc(d.phone||"لا يوجد رقم")}<br>📦 ${esc(d.orderId||"لا يوجد")}<br>📍 ${esc(d.orderLocation||"غير محدد")}<br>الحالة: ${orderStatusLabel(d.orderStatus)}<br>${active?"🟢 في الدوام":"⚪ خارج الدوام"}</div>`);
-      if (active) points.push([d.lat,d.lng]);
+      if(active)points.push([d.lat,d.lng]);
     }
-
-    if (hasOrderPoint) {
-      if (!orderMarkers[id]) {
-        orderMarkers[id] = L.marker([d.orderLat,d.orderLng],{
-          icon:L.divIcon({className:"order-pin-wrap",html:'<div class="order-pin">📦</div>',iconSize:[42,42],iconAnchor:[21,38]})
-        }).addTo(map);
-      } else {
-        orderMarkers[id].setLatLng([d.orderLat,d.orderLng]);
-      }
+    if(hasOrderPoint){
+      if(!orderMarkers[id])orderMarkers[id]=L.marker([d.orderLat,d.orderLng],{icon:L.divIcon({className:"order-pin-wrap",html:'<div class="order-pin">📦</div>',iconSize:[42,42],iconAnchor:[21,38]})}).addTo(map);else orderMarkers[id].setLatLng([d.orderLat,d.orderLng]);
       orderMarkers[id].bindPopup(`<div dir="rtl"><b>مكان طلب ${esc(d.name||"دلفري")}</b><br>📦 ${esc(d.orderId||"بدون رقم")}</div>`);
-    } else if (orderMarkers[id]) {
-      map.removeLayer(orderMarkers[id]);
-      delete orderMarkers[id];
-    }
-
-    if (q && !String(d.name||"").toLowerCase().includes(q) && !String(d.phone||"").includes(q) && !String(d.orderId||"").includes(q)) return;
-
-    const mapLink = mapsUrl(d);
-    const el = document.createElement("div");
-    el.className = "driver-item modern-row " + (late ? "late-row" : "");
-    el.innerHTML = `
-      <div class="driver-profile">
-        <div class="mini-scooter">🛵</div>
-        <div>
-          <strong>${esc(d.name||"دلفري")}</strong>
-          <div class="connect ${active?"yes":"no"}">${active?"● متصل الآن":"● خارج الدوام"}</div>
-        </div>
-      </div>
-      <div class="info-cell"><span>حالة الطلب</span><b>${orderStatusLabel(d.orderStatus)}</b></div>
-      <div class="info-cell"><span>رقم الدلفري</span><b>${esc(d.phone||"—")}</b></div>
-      <div class="info-cell"><span>رقم الطلب</span><b>${esc(d.orderId||"—")}</b></div>
-      <div class="info-cell order-place">
-        <span>مكان الطلب</span>
-        <b>${d.orderLocationMode==="map"&&hasOrderPoint?"📍 محدد على الخريطة":esc(d.orderLocation||"—")}</b>
-        ${hasOrderPoint?'<button class="order-map-link" type="button">عرض مكان الطلب</button>':""}
-      </div>
-      <div class="info-cell"><span>مدة التوصيل</span><b class="${late?"late-text":""}">${minutes!==null?minutes+" دقيقة":"—"}${late?" ⚠️":""}</b></div>
-      <div class="driver-actions">
-        <button class="btn btn-primary focus" ${hasLocation?"":"disabled"}>عرض الموقع</button>
-        ${d.phone?'<a class="btn btn-dark" href="tel:'+esc(d.phone)+'">📞 اتصال</a>':""}
-        ${mapLink?'<a class="btn btn-dark" target="_blank" rel="noopener" href="'+esc(mapLink)+'">🗺️ Google Maps</a>':""}
-        <button class="btn btn-danger delete">حذف</button>
-      </div>
-    `;
-
-    el.querySelector(".focus").onclick = () => focusDriver(id);
-    const orderBtn = el.querySelector(".order-map-link");
-    if (orderBtn) orderBtn.onclick = () => focusOrder(id,d);
-    el.querySelector(".delete").onclick = () => deleteDriver(id,d.name);
-    list.appendChild(el);
+    }else if(orderMarkers[id]){map.removeLayer(orderMarkers[id]);delete orderMarkers[id]}
+    if(q&&!String(d.name||"").toLowerCase().includes(q)&&!String(d.phone||"").includes(q)&&!String(d.orderId||"").includes(q))return;
+    const mapLink=mapsUrl(d),el=document.createElement("div");el.className="driver-item modern-row "+(late?"late-row":"");
+    el.innerHTML=`<div class="driver-profile"><div class="mini-scooter">🛵</div><div><strong>${esc(d.name||"دلفري")}</strong><div class="connect ${active?"yes":"no"}">${active?"● متصل الآن":"● خارج الدوام"}</div></div></div><div class="info-cell"><span>حالة الطلب</span><b>${orderStatusLabel(d.orderStatus)}</b></div><div class="info-cell"><span>رقم الدلفري</span><b>${esc(d.phone||"—")}</b></div><div class="info-cell"><span>رقم الطلب</span><b>${esc(d.orderId||"—")}</b></div><div class="info-cell order-place"><span>مكان الطلب</span><b>${d.orderLocationMode==="map"&&hasOrderPoint?"📍 محدد على الخريطة":esc(d.orderLocation||"—")}</b>${hasOrderPoint?'<button class="order-map-link" type="button">عرض مكان الطلب</button>':""}</div><div class="info-cell"><span>مدة التوصيل</span><b class="${late?"late-text":""}">${minutes!==null?minutes+" دقيقة":"—"}${late?" ⚠️":""}</b></div><div class="driver-actions"><button class="btn btn-primary focus" ${hasLocation?"":"disabled"}>عرض الموقع</button>${d.phone?'<a class="btn btn-dark" href="tel:'+esc(d.phone)+'">📞 اتصال</a>':""}${mapLink?'<a class="btn btn-dark" target="_blank" rel="noopener" href="'+esc(mapLink)+'">🗺️ Google Maps</a>':""}<button class="btn btn-danger delete">حذف</button></div>`;
+    el.querySelector(".focus").onclick=()=>focusDriver(id);const ob=el.querySelector(".order-map-link");if(ob)ob.onclick=()=>focusOrder(id,d);el.querySelector(".delete").onclick=()=>deleteDriver(id,d.name);list.appendChild(el);
   });
-
-  document.getElementById("onlineCount").textContent = online;
-  document.getElementById("offlineCount").textContent = Math.max(dataEntries.length-online,0);
-  document.getElementById("totalCount").textContent = dataEntries.length;
-
-  if (!list.children.length) list.innerHTML = '<div class="driver-item">لا توجد نتائج.</div>';
-
-  if (firstFit && points.length) {
-    map.fitBounds(points,{padding:[50,50],maxZoom:16});
-    firstFit = false;
-  }
+  document.getElementById("onlineCount").textContent=online;document.getElementById("offlineCount").textContent=Math.max(dataEntries.length-online,0);document.getElementById("totalCount").textContent=dataEntries.length;
+  if(!list.children.length)list.innerHTML='<div class="driver-item">لا توجد نتائج.</div>';
+  if(firstFit&&points.length){map.fitBounds(points,{padding:[50,50],maxZoom:16});firstFit=false}
 }
 
-function renderHistory() {
-  historyList.innerHTML = "";
-  const rows = [...historyEntries].sort((a,b)=>(b[1].deliveredAt||0)-(a[1].deliveredAt||0)).slice(0,30);
-
-  rows.forEach(([id,h]) => {
-    const mins = h.durationMs ? Math.round(h.durationMs/60000) : null;
-    const el = document.createElement("div");
-    el.className = "history-item";
-    el.innerHTML = `
-      <div><strong>${esc(h.name||"دلفري")}</strong><div class="muted small">طلب #${esc(h.orderId||"—")}</div></div>
-      <div><span>مكان الطلب</span><b>${esc(h.orderLocation|| (h.orderLat?"محدد على الخريطة":"—"))}</b></div>
-      <div><span>مدة التوصيل</span><b>${mins!==null?mins+" دقيقة":"—"}</b></div>
-      <div><span>وقت التسليم</span><b>${h.deliveredAt?new Date(h.deliveredAt).toLocaleString("ar-IQ"):"—"}</b></div>
-    `;
-    historyList.appendChild(el);
-  });
-
-  if (!rows.length) historyList.innerHTML = '<div class="driver-item">لا توجد طلبات مكتملة حتى الآن.</div>';
+function renderHistory(){
+  historyList.innerHTML="";const rows=[...historyEntries].sort((a,b)=>(b[1].deliveredAt||0)-(a[1].deliveredAt||0)).slice(0,30);
+  rows.forEach(([id,h])=>{const mins=h.durationMs?Math.round(h.durationMs/60000):null,el=document.createElement("div");el.className="history-item";el.innerHTML=`<div><strong>${esc(h.name||"دلفري")}</strong><div class="muted small">طلب #${esc(h.orderId||"—")}</div></div><div><span>مكان الطلب</span><b>${esc(h.orderLocation||(h.orderLat?"محدد على الخريطة":"—"))}</b></div><div><span>مدة التوصيل</span><b>${mins!==null?mins+" دقيقة":"—"}</b></div><div><span>وقت التسليم</span><b>${h.deliveredAt?new Date(h.deliveredAt).toLocaleString("ar-IQ"):"—"}</b></div>`;historyList.appendChild(el)});
+  if(!rows.length)historyList.innerHTML='<div class="driver-item">لا توجد طلبات مكتملة حتى الآن.</div>';
 }
 
-search.oninput = renderDrivers;
-document.getElementById("fitAllBtn").onclick = () => points.length && map.fitBounds(points,{padding:[50,50],maxZoom:16});
-document.getElementById("refreshBtn").onclick = () => { map.invalidateSize(); renderDrivers(); renderHistory(); };
-
-if (!firebaseReady) {
-  document.getElementById("setupWarning").hidden = false;
-} else {
-  onAuthStateChanged(auth, user => {
-    if (!user || user.email !== ADMIN_EMAIL) {
-      location.replace("./");
-      return;
-    }
-    if (authReady) return;
-    authReady = true;
-    db = getDatabase(app);
-    onValue(ref(db,"drivers"), snap => {
-      dataEntries = Object.entries(snap.val()||{});
-      renderDrivers();
-    });
-    onValue(ref(db,"deliveryHistory"), snap => {
-      const raw = snap.val() || {};
-      historyEntries = [];
-      Object.entries(raw).forEach(([k,v]) => {
-        if (v && typeof v==="object" && !("deliveredAt" in v)) {
-          Object.entries(v).forEach(([subId,item]) => historyEntries.push([k+"_"+subId,item]));
-        } else {
-          historyEntries.push([k,v]);
-        }
-      });
-      renderHistory();
-    });
+function renderCodes(){
+  codeList.innerHTML="";
+  codeEntries.filter(([code,v])=>v&&v.role==="driver").sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0)).forEach(([code,v])=>{
+    const el=document.createElement("div");el.className="code-item";
+    el.innerHTML=`<div><strong>${esc(v.name||"دلفري")}</strong><div class="muted small">📞 ${esc(v.phone||"—")}</div></div><div class="code-badge">${esc(code)}</div><div class="${v.enabled?"green":"late-text"}">${v.enabled?"فعال":"متوقف"}</div><div class="code-actions"><button class="btn btn-dark toggle-code">${v.enabled?"إيقاف":"تفعيل"}</button><button class="btn btn-danger delete-code">حذف</button></div>`;
+    el.querySelector(".toggle-code").onclick=()=>update(ref(db,"accessCodes/"+code),{enabled:!v.enabled});
+    el.querySelector(".delete-code").onclick=async()=>{if(confirm("حذف كود "+(v.name||"الدلفري")+"؟"))await remove(ref(db,"accessCodes/"+code))};
+    codeList.appendChild(el);
   });
+  if(!codeList.children.length)codeList.innerHTML='<div class="driver-item">لا توجد أكواد دلفري بعد.</div>';
 }
 
-setInterval(() => { if(authReady) renderDrivers(); },15000);
+document.getElementById("addDriverCodeBtn").onclick=async()=>{
+  const name=document.getElementById("newDriverName").value.trim(),phone=document.getElementById("newDriverPhone").value.trim(),code=document.getElementById("newDriverCode").value.trim();
+  if(!name||!code)return alert("اكتب اسم الدلفري وكود الدخول");
+  if(code.length<4||/[.#$\[\]\/]/.test(code))return alert("الكود يجب أن يكون 4 أحرف/أرقام على الأقل ولا يحتوي . # $ [ ] /");
+  const exists=await get(ref(db,"accessCodes/"+code));if(exists.exists())return alert("هذا الكود مستخدم مسبقاً");
+  await set(ref(db,"accessCodes/"+code),{role:"driver",name,phone,enabled:true,createdAt:Date.now()});
+  document.getElementById("newDriverName").value="";document.getElementById("newDriverPhone").value="";document.getElementById("newDriverCode").value="";
+};
+
+search.oninput=renderDrivers;document.getElementById("fitAllBtn").onclick=()=>points.length&&map.fitBounds(points,{padding:[50,50],maxZoom:16});document.getElementById("refreshBtn").onclick=()=>{map.invalidateSize();renderDrivers();renderHistory()};
+document.getElementById("logoutBtn").onclick=async()=>{try{await remove(ref(db,"sessions/"+uid))}catch(e){}await signOut(auth);location.replace("./")};
+
+function startListeners(){
+  if(initialized)return;initialized=true;
+  onValue(ref(db,"drivers"),s=>{dataEntries=Object.entries(s.val()||{});renderDrivers()});
+  onValue(ref(db,"deliveryHistory"),s=>{historyEntries=[];const raw=s.val()||{};Object.entries(raw).forEach(([k,v])=>{if(v&&typeof v==="object"&&!("deliveredAt" in v))Object.entries(v).forEach(([sub,item])=>historyEntries.push([k+"_"+sub,item]));else historyEntries.push([k,v])});renderHistory()});
+  onValue(ref(db,"accessCodes"),s=>{codeEntries=Object.entries(s.val()||{});renderCodes()});
+  setInterval(renderDrivers,15000);
+}
+
+onAuthStateChanged(auth,async user=>{
+  if(!user){try{await signInAnonymously(auth)}catch(e){location.replace("./")}return}
+  uid=user.uid;
+  try{
+    if(!(await verifyAdmin())){location.replace("./");return}
+    document.getElementById("adminLoading").hidden=true;document.getElementById("adminApp").hidden=false;setTimeout(()=>map.invalidateSize(),100);startListeners();
+  }catch(e){location.replace("./")}
+});
 </script>
 </body>
 </html>
