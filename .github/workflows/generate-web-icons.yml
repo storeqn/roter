@@ -1,0 +1,29 @@
+name: Generate Web App Icons
+permissions:
+  contents: write
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'yasri-delivery-logo.svg'
+      - '.github/workflows/generate-web-icons.yml'
+  workflow_dispatch:
+jobs:
+  icons:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate PNG icons
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y librsvg2-bin
+          rsvg-convert yasri-delivery-logo.svg -w 180 -h 180 -o admin-icon-180.png
+          rsvg-convert yasri-delivery-logo.svg -w 192 -h 192 -o admin-icon-192.png
+          rsvg-convert yasri-delivery-logo.svg -w 512 -h 512 -o admin-icon-512.png
+      - name: Commit icons
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin-icon-180.png admin-icon-192.png admin-icon-512.png
+          git diff --cached --quiet || git commit -m "Generate admin web app icons"
+          git push
