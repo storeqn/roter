@@ -45,3 +45,4 @@ input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #334155;b
 .modern-row{grid-template-columns:1fr 1fr}.driver-profile,.order-place,.driver-actions{grid-column:1/-1}.driver-actions{grid-template-columns:1fr 1fr}
 .drivers-panel,.map-card{padding:10px}.grid{grid-template-columns:1fr}.status-actions{grid-template-columns:1fr 1fr}.history-item{grid-template-columns:1fr 1fr}
 }
+.login-shell{min-height:100vh;display:grid;place-items:center;padding:20px}.login-card{width:min(420px,100%);background:#0d192b;border:1px solid #26364f;border-radius:22px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center}.login-icon{font-size:46px;margin-bottom:10px}.login-card input{text-align:center;font-size:18px}.login-msg{min-height:24px;margin-top:12px;color:#fca5a5;font-size:14px}
