@@ -6,7 +6,7 @@ on:
   push:
     branches: [ main ]
     paths:
-      - '.github/icon-src-*.b64'
+      - 'admin-icon-yasri.png'
       - '.github/workflows/generate-web-icons.yml'
 
 jobs:
@@ -14,26 +14,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Rebuild Yasri icon from verified source
-        run: |
-          cat .github/icon-src-1.b64 .github/icon-src-2.b64 .github/icon-src-3.b64 .github/icon-src-4.b64 .github/icon-src-5.b64 | base64 -d > /tmp/yasri-icon.png
-          echo "8819bdadd7baec721f2bb22836323c35881393bbc24d48dd03549de521919750  /tmp/yasri-icon.png" | sha256sum -c -
-      - name: Generate PNG icons
+      - name: Generate Yasri PNG icon sizes
         run: |
           sudo apt-get update
           sudo apt-get install -y imagemagick
-          identify /tmp/yasri-icon.png
-          convert /tmp/yasri-icon.png -resize 180x180! admin-icon-180.png
-          convert /tmp/yasri-icon.png -resize 192x192! admin-icon-192.png
-          convert /tmp/yasri-icon.png -resize 512x512! admin-icon-512.png
+          identify admin-icon-yasri.png
+          convert admin-icon-yasri.png -resize 180x180! admin-icon-180.png
+          convert admin-icon-yasri.png -resize 192x192! admin-icon-192.png
+          convert admin-icon-yasri.png -resize 512x512! admin-icon-512.png
           identify admin-icon-180.png admin-icon-192.png admin-icon-512.png
+          test $(stat -c%s admin-icon-180.png) -gt 5000
+          test $(stat -c%s admin-icon-192.png) -gt 5000
+          test $(stat -c%s admin-icon-512.png) -gt 10000
       - name: Commit icons
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add admin-icon-180.png admin-icon-192.png admin-icon-512.png
-          git diff --cached --quiet || git commit -m "Install real Yasri app icons"
+          git diff --cached --quiet || git commit -m "Generate Yasri PWA icons"
           git pull --rebase origin main
           git push origin main
-
-# icon-refresh-14
