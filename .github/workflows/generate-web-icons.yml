@@ -35,3 +35,5 @@ jobs:
           git diff --cached --quiet || git commit -m "Install real Yasri app icons"
           git pull --rebase origin main
           git push origin main
+
+# icon-refresh-14
