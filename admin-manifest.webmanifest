@@ -9,11 +9,7 @@
   "lang": "ar",
   "dir": "rtl",
   "icons": [
-    {
-      "src": "admin-icon-180.png?v=6",
-      "sizes": "180x180",
-      "type": "image/png",
-      "purpose": "any"
-    }
+    {"src":"yasri-delivery-logo.svg?v=7","sizes":"any","type":"image/svg+xml","purpose":"any maskable"},
+    {"src":"admin-icon-180.png?v=7","sizes":"180x180","type":"image/png","purpose":"any"}
   ]
 }
