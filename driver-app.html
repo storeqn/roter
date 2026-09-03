@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest?v=21">
 <link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=21">
 <link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=21">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>تطبيق الدلفري</title>
 <style>
@@ -72,26 +72,60 @@ body{min-height:100vh}
   .multi-order-head h2{font-size:20px}
 }
 </style>
+<style>
+/* Driver UI v14 - compact mobile-first */
+.container.narrow{max-width:720px;padding:8px 8px 90px}
+.container.narrow>.card{padding:12px;border-radius:18px}
+.compact-head{margin:0 0 10px;padding:4px 2px}
+.compact-head img{width:48px!important;height:48px!important;border-radius:13px!important;object-fit:cover}
+.compact-head h1{font-size:22px!important;margin:0 0 4px}
+.compact-logout{min-height:38px!important;padding:7px 12px!important}
+.driver-state-line{font-size:13px;color:#aebbd0;display:flex;align-items:center;gap:6px}
+.driver-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:8px 0 14px}
+.driver-summary .stat-card{padding:10px 6px;text-align:center;min-width:0}
+.driver-summary .stat-card span{display:block;font-size:11px;color:#94a3b8;white-space:nowrap}
+.driver-summary .stat-card strong{display:block;font-size:15px;margin-top:4px}
+.multi-order-head{margin:8px 0}.multi-order-head h2{font-size:19px!important}.multi-order-head .muted{display:none}
+.active-orders-list{gap:9px;margin-bottom:10px}
+.active-order-card{padding:11px;border-radius:15px}
+.active-order-no{font-size:17px}.active-order-address{font-size:13px}
+.active-order-actions{margin-top:8px}.active-order-actions .btn{min-height:44px}
+.active-order-card>a.btn{display:inline-flex;width:calc(50% - 5px);margin-inline-end:5px;justify-content:center;box-sizing:border-box}
+.add-order-toggle{margin:10px 0;min-height:48px!important;border:1px dashed rgba(148,163,184,.35)!important}
+.new-order-box{margin:10px 0;padding:12px}
+.new-order-title{display:flex;align-items:center;justify-content:space-between}.new-order-title h3{margin:0}
+.details-toggle{width:100%;background:transparent;color:#aebbd0;border:0;text-align:right;padding:5px 0 10px;font:inherit}
+.shift-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
+.return-btn{margin-top:8px!important}
+.tracking-strip{display:flex;justify-content:space-between;gap:8px;margin-top:10px;padding:9px 10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;color:#94a3b8;font-size:12px}
+.coords{font-size:10px!important;text-align:center;margin-top:5px}
+@media(max-width:420px){.driver-summary .stat-card span{font-size:10px}.driver-summary .stat-card strong{font-size:13px}.active-order-top{gap:6px}.active-order-state{font-size:11px}.tracking-strip{font-size:11px}}
+</style>
 </head>
 <body>
 <main class="container narrow">
 <section class="card">
-  <div class="driver-head"><div style="display:flex;align-items:center;gap:12px"><img src="admin-icon-512.png?v=21" alt="شعار الياسري" style="width:64px;height:64px;border-radius:16px;object-fit:cover"><div><div class="badge">تطبيق الدلفري</div><h1>الدوام والتتبع 🛵</h1></div></div><div id="liveDot" class="live-dot off"></div></div>
-  <div class="driver-identity"><strong id="identityName">—</strong><span id="identityPhone" class="muted">—</span><button id="driverLogoutBtn" class="btn btn-dark">خروج</button></div>
+  <div class="driver-head compact-head"><div style="display:flex;align-items:center;gap:10px"><img src="admin-icon-512.png?v=21" alt="شعار الياسري"><div><h1 id="identityName">—</h1><div id="status" class="driver-state-line"><span id="liveDot" class="live-dot off"></span> خارج الدوام</div></div></div><button id="driverLogoutBtn" class="btn btn-dark compact-logout">خروج</button></div>
+  <input id="driverName" type="hidden"><input id="phone" type="hidden"><span id="identityPhone" hidden></span>
 
-  <label>اسم الدلفري</label><input id="driverName" readonly>
-  <label>رقم الدلفري / الهاتف</label><input id="phone" readonly>
+  <div class="driver-summary">
+    <div class="stat-card"><span>📦 الطلبات</span><strong id="summaryOrders">0</strong></div>
+    <div class="stat-card"><span>🛵 قيد التوصيل</span><strong id="summaryRoute">0</strong></div>
+    <div class="stat-card"><span>💵 النقد معي</span><strong id="cashWithDriver">0 د.ع</strong></div>
+  </div>
   <div class="multi-order-head">
     <div><h2 style="margin:0">طلباتي الحالية</h2><div class="muted small">يمكن إضافة أكثر من طلب في نفس الجولة</div></div>
     <span id="activeOrdersCount" class="badge">0 طلب</span>
   </div>
   <div id="activeOrdersList" class="active-orders-list"></div>
 
-  <div class="new-order-box">
-    <h3>➕ إضافة طلب جديد</h3>
+  <button id="toggleNewOrderBtn" type="button" class="btn btn-dark full add-order-toggle">➕ إضافة طلب جديد</button>
+  <div class="new-order-box" id="newOrderBox" hidden>
+    <div class="new-order-title"><h3>إضافة طلب جديد</h3><button id="closeNewOrderBtn" type="button" class="btn btn-dark">✕</button></div>
     <label>رقم الطلب</label><input id="orderId" placeholder="مثال: 1052">
     <label>رقم هاتف الزبون <span class="muted small">(اختياري)</span></label><input id="customerPhone" inputmode="tel" placeholder="مثال: 0770...">
-    <label>ملاحظات الطلب <span class="muted small">(اختياري)</span></label><input id="orderNotes" placeholder="مثال: قرب الجامع - الاتصال عند الوصول">
+    <button id="toggleExtrasBtn" type="button" class="details-toggle">تفاصيل إضافية ▾</button>
+    <div id="extraFields" hidden><label>ملاحظات الطلب <span class="muted small">(اختياري)</span></label><input id="orderNotes" placeholder="مثال: قرب الجامع - الاتصال عند الوصول"></div>
     <label>مبلغ الطلب <span class="muted small">(اختياري)</span></label><input id="orderAmount" inputmode="numeric" placeholder="مثال: 25000">
     <label>طريقة الدفع</label>
     <div class="location-tabs"><button id="cashMode" class="location-tab active" type="button">💵 نقدي</button><button id="paidMode" class="location-tab" type="button">✅ مدفوع</button></div>
@@ -103,11 +137,10 @@ body{min-height:100vh}
     <button id="addOrderBtn" type="button" class="btn btn-primary full">➕ إضافة الطلب إلى قائمتي</button>
   </div>
 
-  <div class="grid"><button id="startBtn" class="btn btn-primary">🟢 بدء الدوام والتتبع</button><button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button></div>
-  <button id="returnBtn" class="btn btn-dark full" style="margin-top:10px" disabled>↩️ العودة للمطعم</button>
-  <div id="status" class="status">الحالة: خارج الدوام</div>
-  <div class="mini-grid"><div class="stat-card"><span class="muted small">آخر تحديث</span><strong id="lastUpdate">—</strong></div><div class="stat-card"><span class="muted small">مدة التوصيل</span><strong id="deliveryTimer">—</strong></div><div class="stat-card"><span class="muted small">النقد معي</span><strong id="cashWithDriver">0 د.ع</strong></div></div>
-  <div id="coords" class="muted small coords"></div><div class="note">على تطبيق أندرويد يستمر إرسال الموقع حتى عند قفل الشاشة بعد بدء الدوام.</div>
+  <div class="shift-controls"><button id="startBtn" class="btn btn-primary">🟢 بدء الدوام</button><button id="stopBtn" class="btn btn-danger" disabled>🔴 إنهاء الدوام</button></div>
+  <button id="returnBtn" class="btn btn-dark full return-btn" hidden disabled>↩️ العودة للمطعم</button>
+  <div class="tracking-strip"><span>📍 آخر تحديث: <b id="lastUpdate">—</b></span><span>⏱️ <b id="deliveryTimer">—</b></span></div>
+  <div id="coords" class="muted small coords"></div>
 </section>
 </main>
 
@@ -119,7 +152,7 @@ import { getDatabase, ref, get, set, update, remove, onDisconnect, push, onValue
 import { firebaseConfig } from "./firebase-config.js";
 
 const $=id=>document.getElementById(id), app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app);
-const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),orderAmount=$("orderAmount"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),returnBtn=$("returnBtn"),statusEl=$("status"),dot=$("liveDot"),deliveryTimer=$("deliveryTimer"),cashWithDriver=$("cashWithDriver");
+const name=$("driverName"),phone=$("phone"),order=$("orderId"),customerPhone=$("customerPhone"),orderNotes=$("orderNotes"),orderAmount=$("orderAmount"),place=$("orderLocation"),start=$("startBtn"),stop=$("stopBtn"),returnBtn=$("returnBtn"),statusEl=$("status"),deliveryTimer=$("deliveryTimer"),cashWithDriver=$("cashWithDriver");let dot=$("liveDot");
 let uid=null,code=null,authReady=false,watchId=null,orderMap=null,orderMarker=null,accessUnsub=null,trackingStarted=false,cashCollected=0;
 let orderLat=null,orderLng=null,locationMode="text",paymentMode="cash",returningToRestaurant=false;
 let activeOrders=[];
@@ -145,7 +178,7 @@ function driverState(){
 }
 function stateLabel(s){return {available:"🟢 متاح",delivering:"🛵 لديه طلب",returning:"🟠 عائد للمطعم",offline:"⚫ خارج الدوام"}[s]||"—"}
 function refreshAutoState(){const s=driverState();setShiftStatus(stateLabel(s),s!=="offline");return s}
-function setShiftStatus(text,on=false){statusEl.textContent="الحالة: "+text;dot.className="live-dot "+(on?"on":"off")}
+function setShiftStatus(text,on=false){statusEl.innerHTML='<span id="liveDot" class="live-dot '+(on?'on':'off')+'"></span> '+text;dot=document.getElementById("liveDot")}
 function legacyOrder(){
   const inRoute=activeOrders.find(o=>o.status==="on_route");
   return inRoute||activeOrders[0]||null;
@@ -186,12 +219,14 @@ function orderMapsUrl(o){
 }
 function renderActiveOrders(){
   const box=$("activeOrdersList"),count=$("activeOrdersCount");
-  count.textContent=activeOrders.length+" طلب";
+  count.textContent=activeOrders.length+" طلب";$("summaryOrders").textContent=activeOrders.length;$("summaryRoute").textContent=activeOrders.filter(o=>o.status==="on_route").length;
   if(!activeOrders.length){
-    box.innerHTML='<div class="empty-orders">لا توجد طلبات حالية — أضف طلبًا جديدًا من الأسفل.</div>';
+    box.innerHTML='<div class="empty-orders">لا توجد طلبات حالية</div>';
     deliveryTimer.textContent="—";
+    returnBtn.hidden=!trackingStarted;returnBtn.disabled=!trackingStarted;
     return;
   }
+  returnBtn.hidden=true;
   box.innerHTML="";
   activeOrders.forEach(o=>{
     const card=document.createElement("div");
@@ -222,7 +257,7 @@ async function finishOrderDelivery(key){
   if(uid)await set(push(ref(db,"deliveryHistory/"+uid)),snapshot);
   if(o.paymentMode==="cash")cashCollected+=Number(o.amount)||0;
   activeOrders.splice(idx,1);
-  if(!activeOrders.length)returnBtn.disabled=false;
+  if(!activeOrders.length){returnBtn.disabled=false;returnBtn.hidden=!trackingStarted;}
   refreshAutoState();renderActiveOrders(); await saveLive();
 }
 async function addOrder(){
@@ -245,7 +280,7 @@ async function addOrder(){
     deliveryStartedAt:null,
     addedAt:Date.now()
   };
-  activeOrders.push(item); saveLocal(); renderActiveOrders(); await saveLive();
+  activeOrders.push(item); returningToRestaurant=false; saveLocal(); renderActiveOrders(); await saveLive();
   order.value="";customerPhone.value="";orderNotes.value="";orderAmount.value="";place.value="";orderLat=null;orderLng=null;
   if(orderMarker&&orderMap){orderMap.removeLayer(orderMarker);orderMarker=null}
   $("selectedLocation").textContent="لم يتم تحديد موقع الطلب بعد";
@@ -301,7 +336,10 @@ $("mapMode").onclick=()=>setMode("map");
 $("cashMode").onclick=()=>{paymentMode="cash";$("cashMode").classList.add("active");$("paidMode").classList.remove("active")};
 $("paidMode").onclick=()=>{paymentMode="paid";$("paidMode").classList.add("active");$("cashMode").classList.remove("active")};
 $("myLocationBtn").onclick=()=>navigator.geolocation.getCurrentPosition(p=>selectPoint(p.coords.latitude,p.coords.longitude),()=>alert("تعذر تحديد موقعك"),{enableHighAccuracy:true});
-$("addOrderBtn").onclick=addOrder;
+$("addOrderBtn").onclick=async()=>{await addOrder();if(order.value==="")$("newOrderBox").hidden=true};
+$("toggleNewOrderBtn").onclick=()=>{$("newOrderBox").hidden=false;$("toggleNewOrderBtn").scrollIntoView({behavior:"smooth",block:"start"})};
+$("closeNewOrderBtn").onclick=()=>{$("newOrderBox").hidden=true};
+$("toggleExtrasBtn").onclick=()=>{const e=$("extraFields");e.hidden=!e.hidden;$("toggleExtrasBtn").textContent=e.hidden?"تفاصيل إضافية ▾":"تفاصيل إضافية ▴"};
 returnBtn.onclick=async()=>{if(activeOrders.length)return alert("أنهِ الطلبات الحالية أولاً");returningToRestaurant=true;returnBtn.disabled=true;refreshAutoState();await saveLive();};
 setMode("text");
 renderActiveOrders();
@@ -321,7 +359,7 @@ start.onclick=async()=>{
   }else{
     onDisconnect(driverRef).update({online:false,shift:false,updatedAt:Date.now()});
   }
-  trackingStarted=true;start.disabled=true;stop.disabled=false;
+  trackingStarted=true;start.disabled=true;stop.disabled=false;if(!activeOrders.length){returnBtn.hidden=false;returnBtn.disabled=false;}
   setShiftStatus(nativeTracking?"في الدوام — التتبع بالخلفية يعمل":"جاري تحديد الموقع...",nativeTracking);
   watchId=navigator.geolocation.watchPosition(async p=>{
     const now=Date.now(),d={id:uid,code,...values(),lat:p.coords.latitude,lng:p.coords.longitude,accuracy:Math.round(p.coords.accuracy||0),speed:p.coords.speed||0,heading:p.coords.heading||0,online:true,shift:true,updatedAt:now};
@@ -342,7 +380,7 @@ stop.onclick=async()=>{
   }else{
     await update(ref(db,"drivers/"+uid),{...values(),code,online:false,shift:false,updatedAt:Date.now()});
   }
-  trackingStarted=false;returningToRestaurant=false;setShiftStatus("⚫ خارج الدوام");start.disabled=false;stop.disabled=true;returnBtn.disabled=true;
+  trackingStarted=false;returningToRestaurant=false;setShiftStatus("⚫ خارج الدوام");start.disabled=false;stop.disabled=true;returnBtn.disabled=true;returnBtn.hidden=true;
 };
 setInterval(renderActiveOrders,15000);
 </script>
