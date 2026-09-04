@@ -58,6 +58,31 @@ async function ensureAnonymous(){
   uid=cred.user.uid;return cred.user;
 }
 
+function showWaiting(){
+  $("driverLoginMsg").textContent="⏳ هذا الجهاز بانتظار موافقة مالك النظام";
+  $("driverDebug").textContent="رقم الجهاز: "+deviceId.slice(0,8)+"…";
+}
+
+async function ensureDeviceApproval(code,licenseId){
+  if(!licenseId)throw new Error("missing-license");
+  const deviceRef=ref(db,"licenses/"+licenseId+"/devices/"+deviceId);
+  const snap=await withTimeout(get(deviceRef));
+  if(snap.exists()){
+    const device=snap.val();
+    if(device&&device.approved===true)return true;
+    showWaiting();
+    return false;
+  }
+  await withTimeout(set(deviceRef,{
+    approved:false,
+    uid,
+    code,
+    createdAt:Date.now()
+  }));
+  showWaiting();
+  return false;
+}
+
 async function checkExisting(){
   try{
     if(!uid)return false;
@@ -68,18 +93,23 @@ async function checkExisting(){
     const cs=await get(ref(db,"accessCodes/"+code));
     const v=cs.val();
     if(v&&v.enabled===true&&v.role==="driver"){
-      if(session.deviceId!==deviceId){
+      const licenseId=v.licenseId||session.licenseId||"";
+      if(session.deviceId!==deviceId||session.licenseId!==licenseId){
         await set(ref(db,"sessions/"+uid),{
           code,
-          licenseId:v.licenseId||session.licenseId||"",
+          licenseId,
           deviceId,
           createdAt:session.createdAt||Date.now()
         });
       }
+      const approved=await ensureDeviceApproval(code,licenseId);
+      if(!approved)return false;
       location.replace("driver-app.html");
       return true;
     }
-  }catch(e){}
+  }catch(e){
+    console.error(e);
+  }
   return false;
 }
 
@@ -96,16 +126,20 @@ async function login(){
       $("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
       return;
     }
+    const licenseId=v.licenseId||"";
     await withTimeout(set(ref(db,"sessions/"+uid),{
       code,
-      licenseId:v.licenseId||"",
+      licenseId,
       deviceId,
       createdAt:Date.now()
     }));
+    const approved=await ensureDeviceApproval(code,licenseId);
+    if(!approved)return;
     location.replace("driver-app.html");
   }catch(e){
     console.error(e);
-    $("driverLoginMsg").textContent=String(e?.message||"").includes("timeout")?"انتهت مهلة الاتصال، حاول مرة أخرى":"تعذر تسجيل الدخول";
+    const msg=String(e?.message||"");
+    $("driverLoginMsg").textContent=msg.includes("timeout")?"انتهت مهلة الاتصال، حاول مرة أخرى":"تعذر تسجيل الدخول";
   }finally{
     $("driverLoginBtn").disabled=false;
   }
