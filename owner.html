@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#07111f">
+<title>لوحة مالك النظام</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;background:#07111f;color:#fff;min-height:100vh}.wrap{max-width:760px;margin:auto;padding:16px}.card{background:#0d1b2d;border:1px solid #1f3552;border-radius:20px;padding:16px;margin-bottom:14px;box-shadow:0 14px 36px rgba(0,0,0,.2)}h1,h2,h3{margin:0 0 12px}label{display:block;font-weight:700;margin:10px 0 6px}input{width:100%;min-height:48px;border-radius:12px;border:1px solid #2b4568;background:#081525;color:#fff;padding:12px;font-size:16px}.btn{border:0;border-radius:12px;min-height:44px;padding:10px 14px;font-size:15px;font-weight:800;cursor:pointer}.full{width:100%}.primary{background:#2f7df6;color:#fff}.success{background:#169c59;color:#fff}.danger{background:#d64646;color:#fff}.dark{background:#17283e;color:#fff}.muted{color:#9fb0c7;font-size:13px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.badge{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;background:#21334b}.on{background:#124f32;color:#99f6c7}.off{background:#522727;color:#ffc0c0}.license{padding:14px;border:1px solid #263e5d;border-radius:16px;margin-top:12px;background:#0a1727}.device{padding:12px;border:1px solid #243b58;border-radius:14px;margin-top:10px;background:#091522}.device-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;word-break:break-all;color:#b8c7db}.hidden{display:none!important}.msg{margin-top:10px;font-size:14px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}@media(max-width:520px){.wrap{padding:10px}.card{padding:13px;border-radius:16px}.row.actions{display:grid;grid-template-columns:1fr 1fr}.row.actions .btn{width:100%}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar"><div><h1>لوحة مالك النظام</h1><div class="muted">إدارة المطاعم والأجهزة</div></div><button id="logoutBtn" class="btn dark hidden">خروج</button></div>
+
+  <section id="loginCard" class="card">
+    <h2>تسجيل دخول المالك</h2>
+    <label>البريد الإلكتروني</label><input id="email" type="email" autocomplete="username" placeholder="name@example.com">
+    <label>كلمة المرور</label><input id="password" type="password" autocomplete="current-password" placeholder="••••••••">
+    <button id="loginBtn" class="btn primary full" style="margin-top:14px">دخول</button>
+    <div id="loginMsg" class="msg muted"></div>
+  </section>
+
+  <section id="dashboard" class="hidden">
+    <div class="card">
+      <div class="row between"><div><h2>المطاعم</h2><div class="muted">فعّل أو أوقف المطعم ووافق على الأجهزة الجديدة.</div></div><span id="restaurantCount" class="badge">0</span></div>
+      <div id="licensesList"></div>
+    </div>
+  </section>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getDatabase, ref, get, update, onValue } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { firebaseConfig } from "./firebase-config.js";
+
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app),$=id=>document.getElementById(id);
+let licensesUnsub=null;
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+async function isOwner(uid){const s=await get(ref(db,"owners/"+uid));return s.exists()&&s.val()===true}
+function showLogin(msg=""){if(licensesUnsub){licensesUnsub();licensesUnsub=null}$("dashboard").classList.add("hidden");$("loginCard").classList.remove("hidden");$("logoutBtn").classList.add("hidden");$("loginMsg").textContent=msg}
+function showDashboard(){$("loginCard").classList.add("hidden");$("dashboard").classList.remove("hidden");$("logoutBtn").classList.remove("hidden")}
+function renderLicenses(data){const list=$("licensesList");const entries=Object.entries(data||{});$("restaurantCount").textContent=entries.length+" مطعم";if(!entries.length){list.innerHTML='<div class="muted" style="padding:14px 0">لا توجد تراخيص بعد.</div>';return}list.innerHTML="";for(const [licenseId,l] of entries){const box=document.createElement("div");box.className="license";const devices=Object.entries(l?.devices||{}).filter(([,d])=>d&&typeof d==="object");const pending=devices.filter(([,d])=>d.approved!==true).length;box.innerHTML=`<div class="row between"><div><h3>${esc(l?.name||licenseId)}</h3><div class="muted">ID: ${esc(licenseId)}${l?.expiresAt?" · انتهاء: "+esc(l.expiresAt):""}</div></div><span class="badge ${l?.active===true?"on":"off"}">${l?.active===true?"مفعّل":"متوقف"}</span></div><div class="row actions" style="margin-top:10px"><button class="btn ${l?.active===true?"danger":"success"} toggle-license">${l?.active===true?"إيقاف المطعم":"تفعيل المطعم"}</button><span class="badge">${devices.length} جهاز${pending?" · "+pending+" بانتظار الموافقة":""}</span></div><div class="devices"></div>`;box.querySelector(".toggle-license").onclick=()=>update(ref(db,"licenses/"+licenseId),{active:l?.active===true?false:true});const devicesBox=box.querySelector(".devices");if(!devices.length){devicesBox.innerHTML='<div class="muted" style="margin-top:12px">لا توجد أجهزة مسجلة.</div>'}else{for(const [deviceId,d] of devices){const dv=document.createElement("div");dv.className="device";dv.innerHTML=`<div class="row between"><div><strong>${d.approved===true?"جهاز معتمد":"جهاز ينتظر الموافقة"}</strong><div class="device-id">${esc(deviceId)}</div>${d.code?'<div class="muted">كود السائق: '+esc(d.code)+'</div>':""}</div><span class="badge ${d.approved===true?"on":"off"}">${d.approved===true?"مسموح":"غير مسموح"}</span></div><div class="row actions" style="margin-top:10px"><button class="btn ${d.approved===true?"danger":"success"} device-toggle">${d.approved===true?"إلغاء الموافقة":"موافقة على الجهاز"}</button></div>`;dv.querySelector(".device-toggle").onclick=()=>update(ref(db,`licenses/${licenseId}/devices/${deviceId}`),{approved:d.approved===true?false:true});devicesBox.appendChild(dv)}}list.appendChild(box)}}
+function watchLicenses(){if(licensesUnsub)licensesUnsub();licensesUnsub=onValue(ref(db,"licenses"),s=>renderLicenses(s.val()),e=>{console.error(e);alert("تعذر قراءة التراخيص")})}
+$("loginBtn").onclick=async()=>{const email=$("email").value.trim(),password=$("password").value;$("loginMsg").textContent="جاري تسجيل الدخول...";try{const c=await signInWithEmailAndPassword(auth,email,password);if(!(await isOwner(c.user.uid))){await signOut(auth);return showLogin("هذا الحساب ليس مالك النظام.")}showDashboard();watchLicenses()}catch(e){console.error(e);showLogin("البريد أو كلمة المرور غير صحيحة.")}};
+$("logoutBtn").onclick=()=>signOut(auth);
+onAuthStateChanged(auth,async user=>{if(!user)return showLogin();try{if(await isOwner(user.uid)){showDashboard();watchLicenses()}else{await signOut(auth);showLogin("هذا الحساب غير مخول.")}}catch(e){console.error(e);showLogin("تعذر التحقق من صلاحية المالك.")}});
+</script>
+</body>
+</html>
