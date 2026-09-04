@@ -36,6 +36,18 @@ const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getDatabase(app);
 const $=id=>document.getElementById(id);
 let uid=null;
 
+function getDeviceId(){
+  const key="roterDeviceId";
+  let id=localStorage.getItem(key);
+  if(!id){
+    id=(crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)));
+    localStorage.setItem(key,id);
+  }
+  return id;
+}
+
+const deviceId=getDeviceId();
+
 function withTimeout(promise,ms=10000){
   return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),ms))]);
 }
@@ -51,10 +63,19 @@ async function checkExisting(){
     if(!uid)return false;
     const ss=await get(ref(db,"sessions/"+uid));
     if(!ss.exists())return false;
-    const code=ss.val().code;
+    const session=ss.val()||{};
+    const code=session.code;
     const cs=await get(ref(db,"accessCodes/"+code));
     const v=cs.val();
     if(v&&v.enabled===true&&v.role==="driver"){
+      if(session.deviceId!==deviceId){
+        await set(ref(db,"sessions/"+uid),{
+          code,
+          licenseId:v.licenseId||session.licenseId||"",
+          deviceId,
+          createdAt:session.createdAt||Date.now()
+        });
+      }
       location.replace("driver-app.html");
       return true;
     }
@@ -75,7 +96,12 @@ async function login(){
       $("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
       return;
     }
-    await withTimeout(set(ref(db,"sessions/"+uid),{code,createdAt:Date.now()}));
+    await withTimeout(set(ref(db,"sessions/"+uid),{
+      code,
+      licenseId:v.licenseId||"",
+      deviceId,
+      createdAt:Date.now()
+    }));
     location.replace("driver-app.html");
   }catch(e){
     console.error(e);
