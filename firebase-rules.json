@@ -3,9 +3,35 @@
     ".read": false,
     ".write": false,
 
+    "owners": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": false
+      }
+    },
+
+    "licenses": {
+      ".read": "auth != null && root.child('owners').child(auth.uid).val() === true",
+
+      "$licenseId": {
+        ".read": "auth != null",
+        ".write": "auth != null && root.child('owners').child(auth.uid).val() === true",
+
+        "devices": {
+          "$deviceId": {
+            ".read": "auth != null && (root.child('owners').child(auth.uid).val() === true || (root.child('sessions').child(auth.uid).child('licenseId').val() === $licenseId && root.child('sessions').child(auth.uid).child('deviceId').val() === $deviceId))",
+
+            ".write": "auth != null && (root.child('owners').child(auth.uid).val() === true || (!data.exists() && root.child('sessions').child(auth.uid).child('licenseId').val() === $licenseId && root.child('sessions').child(auth.uid).child('deviceId').val() === $deviceId && newData.child('approved').val() === false && newData.child('uid').val() === auth.uid && newData.child('code').val() === root.child('sessions').child(auth.uid).child('code').val()))"
+          }
+        }
+      }
+    },
+
     "accessCodes": {
-      ".read": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
-      ".write": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
+      ".read": "auth != null && (root.child('owners').child(auth.uid).val() === true || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true))",
+
+      ".write": "auth != null && (root.child('owners').child(auth.uid).val() === true || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true))",
+
       "$code": {
         ".read": "auth != null"
       }
@@ -13,23 +39,27 @@
 
     "sessions": {
       "$uid": {
-        ".read": "auth != null && $uid === auth.uid",
-        ".write": "auth != null && $uid === auth.uid && (!newData.exists() || (newData.child('code').isString() && root.child('accessCodes').child(newData.child('code').val()).child('enabled').val() === true))"
+        ".read": "auth != null && (root.child('owners').child(auth.uid).val() === true || $uid === auth.uid || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true))",
+
+        ".write": "auth != null && (root.child('owners').child(auth.uid).val() === true || (($uid === auth.uid && (!newData.exists() || (newData.child('code').isString() && root.child('accessCodes').child(newData.child('code').val()).child('enabled').val() === true && root.child('accessCodes').child(newData.child('code').val()).child('licenseId').isString() && root.child('licenses').child(root.child('accessCodes').child(newData.child('code').val()).child('licenseId').val()).child('active').val() === true))) || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true)))"
       }
     },
 
     "drivers": {
-      ".read": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
+      ".read": "auth != null && (root.child('owners').child(auth.uid).val() === true || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true))",
+
       "$uid": {
-        ".read": "auth != null && ($uid === auth.uid || root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin')",
-        ".write": "auth != null && ((auth.uid === $uid && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'driver' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true) || root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin')"
+        ".read": "auth != null && (root.child('owners').child(auth.uid).val() === true || ((auth.uid === $uid && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'driver' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true && root.child('sessions').child(auth.uid).child('licenseId').val() === root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val() && root.child('licenses').child(root.child('sessions').child(auth.uid).child('licenseId').val()).child('active').val() === true && root.child('sessions').child(auth.uid).child('deviceId').isString() && root.child('licenses').child(root.child('sessions').child(auth.uid).child('licenseId').val()).child('devices').child(root.child('sessions').child(auth.uid).child('deviceId').val()).child('approved').val() === true) || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true)))",
+
+        ".write": "auth != null && (root.child('owners').child(auth.uid).val() === true || ((auth.uid === $uid && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'driver' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true && root.child('sessions').child(auth.uid).child('licenseId').val() === root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val() && root.child('licenses').child(root.child('sessions').child(auth.uid).child('licenseId').val()).child('active').val() === true && root.child('sessions').child(auth.uid).child('deviceId').isString() && root.child('licenses').child(root.child('sessions').child(auth.uid).child('licenseId').val()).child('devices').child(root.child('sessions').child(auth.uid).child('deviceId').val()).child('approved').val() === true) || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true)))"
       }
     },
 
     "deliveryHistory": {
-      ".read": "auth != null && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin'",
+      ".read": "auth != null && (root.child('owners').child(auth.uid).val() === true || (root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'admin' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true && root.child('licenses').child(root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val()).child('active').val() === true))",
+
       "$uid": {
-        ".write": "auth != null && auth.uid === $uid && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'driver' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true"
+        ".write": "auth != null && (root.child('owners').child(auth.uid).val() === true || (auth.uid === $uid && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('role').val() === 'driver' && root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('enabled').val() === true && root.child('sessions').child(auth.uid).child('licenseId').val() === root.child('accessCodes').child(root.child('sessions').child(auth.uid).child('code').val()).child('licenseId').val() && root.child('licenses').child(root.child('sessions').child(auth.uid).child('licenseId').val()).child('active').val() === true && root.child('sessions').child(auth.uid).child('deviceId').isString() && root.child('licenses').child(root.child('sessions').child(auth.uid).child('licenseId').val()).child('devices').child(root.child('sessions').child(auth.uid).child('deviceId').val()).child('approved').val() === true))"
       }
     }
   }
