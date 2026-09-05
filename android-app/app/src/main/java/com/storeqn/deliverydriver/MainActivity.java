@@ -106,6 +106,7 @@ public class MainActivity extends Activity {
                 i.putExtra("name",name);
                 i.putExtra("phone",phone);
                 i.putExtra("meta",metaJson);
+                i.putExtra("deviceId",buildStableDeviceId());
                 startForegroundService(i);
             });
         }
