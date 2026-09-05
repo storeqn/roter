@@ -35,18 +35,64 @@ import { firebaseConfig } from "./firebase-config.js";
 const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getDatabase(app);
 const $=id=>document.getElementById(id);
 let uid=null;
+let deviceId="";
 
-function getDeviceId(){
-  const key="roterDeviceId";
-  let id=localStorage.getItem(key);
-  if(!id){
-    id=(crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)));
-    localStorage.setItem(key,id);
-  }
+const DEVICE_KEY="roterDeviceId";
+
+function cookieGet(name){
+  const p=document.cookie.split("; ").find(v=>v.startsWith(name+"="));
+  return p?decodeURIComponent(p.split("=").slice(1).join("=")):"";
+}
+function cookieSet(name,value){
+  document.cookie=name+"="+encodeURIComponent(value)+"; Max-Age=31536000; Path=/; SameSite=Lax; Secure";
+}
+function openDeviceDb(){
+  return new Promise((resolve,reject)=>{
+    if(!("indexedDB" in window))return resolve(null);
+    const req=indexedDB.open("roterDeviceStore",1);
+    req.onupgradeneeded=()=>{
+      const db=req.result;
+      if(!db.objectStoreNames.contains("kv"))db.createObjectStore("kv");
+    };
+    req.onsuccess=()=>resolve(req.result);
+    req.onerror=()=>resolve(null);
+  });
+}
+async function idbGet(){
+  try{
+    const db=await openDeviceDb();
+    if(!db)return "";
+    return await new Promise(resolve=>{
+      const tx=db.transaction("kv","readonly");
+      const r=tx.objectStore("kv").get(DEVICE_KEY);
+      r.onsuccess=()=>resolve(r.result||"");
+      r.onerror=()=>resolve("");
+    });
+  }catch{return ""}
+}
+async function idbSet(value){
+  try{
+    const db=await openDeviceDb();
+    if(!db)return;
+    await new Promise(resolve=>{
+      const tx=db.transaction("kv","readwrite");
+      tx.objectStore("kv").put(value,DEVICE_KEY);
+      tx.oncomplete=()=>resolve();
+      tx.onerror=()=>resolve();
+    });
+  }catch{}
+}
+async function getDeviceId(){
+  let id="";
+  try{id=localStorage.getItem(DEVICE_KEY)||""}catch{}
+  if(!id)id=await idbGet();
+  if(!id)id=cookieGet(DEVICE_KEY);
+  if(!id)id=(crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)));
+  try{localStorage.setItem(DEVICE_KEY,id)}catch{}
+  await idbSet(id);
+  try{cookieSet(DEVICE_KEY,id)}catch{}
   return id;
 }
-
-const deviceId=getDeviceId();
 
 function withTimeout(promise,ms=10000){
   return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),ms))]);
@@ -85,7 +131,7 @@ async function ensureDeviceApproval(code,licenseId){
 
 async function checkExisting(){
   try{
-    if(!uid)return false;
+    if(!uid||!deviceId)return false;
     const ss=await get(ref(db,"sessions/"+uid));
     if(!ss.exists())return false;
     const session=ss.val()||{};
@@ -107,9 +153,7 @@ async function checkExisting(){
       location.replace("driver-app.html");
       return true;
     }
-  }catch(e){
-    console.error(e);
-  }
+  }catch(e){console.error(e)}
   return false;
 }
 
@@ -119,6 +163,7 @@ async function login(){
   $("driverLoginBtn").disabled=true;
   $("driverLoginMsg").textContent="جاري التحقق...";
   try{
+    if(!deviceId)deviceId=await getDeviceId();
     await ensureAnonymous();
     const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)));
     const v=codeSnap.val();
@@ -140,22 +185,23 @@ async function login(){
     console.error(e);
     const msg=String(e?.message||"");
     $("driverLoginMsg").textContent=msg.includes("timeout")?"انتهت مهلة الاتصال، حاول مرة أخرى":"تعذر تسجيل الدخول";
-  }finally{
-    $("driverLoginBtn").disabled=false;
-  }
+  }finally{$("driverLoginBtn").disabled=false}
 }
 $("driverLoginBtn").onclick=login;
 $("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")login()});
 
-onAuthStateChanged(auth,async user=>{
-  if(user){
-    uid=user.uid;
-    $("driverDebug").textContent="متصل بالنظام";
-    await checkExisting();
-  }else{
-    try{await ensureAnonymous();$("driverDebug").textContent="متصل بالنظام"}catch(e){$("driverDebug").textContent="تعذر الاتصال بالنظام"}
-  }
-});
+(async()=>{
+  deviceId=await getDeviceId();
+  onAuthStateChanged(auth,async user=>{
+    if(user){
+      uid=user.uid;
+      $("driverDebug").textContent="متصل بالنظام";
+      await checkExisting();
+    }else{
+      try{await ensureAnonymous();$("driverDebug").textContent="متصل بالنظام"}catch(e){$("driverDebug").textContent="تعذر الاتصال بالنظام"}
+    }
+  });
+})();
 </script>
 </body>
 </html>
