@@ -13,8 +13,16 @@
     "licenses": {
       ".read": "auth != null && root.child('owners').child(auth.uid).val() === true",
       "$licenseId": {
-        ".read": "auth != null",
         ".write": "auth != null && root.child('owners').child(auth.uid).val() === true",
+        "name": {
+          ".read": "auth != null && root.child('sessions').child(auth.uid).child('licenseId').val() === $licenseId"
+        },
+        "active": {
+          ".read": "auth != null && root.child('sessions').child(auth.uid).child('licenseId').val() === $licenseId"
+        },
+        "expiresAt": {
+          ".read": "auth != null && root.child('sessions').child(auth.uid).child('licenseId').val() === $licenseId"
+        },
         "devices": {
           "$deviceId": {
             ".read": "auth != null && (root.child('owners').child(auth.uid).val() === true || (root.child('sessions').child(auth.uid).child('licenseId').val() === $licenseId && root.child('sessions').child(auth.uid).child('deviceId').val() === $deviceId))",
