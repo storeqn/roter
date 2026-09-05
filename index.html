@@ -29,10 +29,9 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
-import { getDatabase, ref, get, set, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
+import { getDatabase, ref, get, set, update, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
-const ADMIN_CODE = "حسين فالح";
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getDatabase(app);
@@ -41,28 +40,23 @@ const btn = document.getElementById("loginBtn");
 const msg = document.getElementById("loginMsg");
 let uid = null;
 
-async function bootstrapAdmin(){
-  try{
-    const r = ref(db,"accessCodes/"+ADMIN_CODE);
-    const s = await get(r);
-    if(!s.exists()){
-      await set(r,{role:"admin",name:"إدارة المطعم",phone:"",enabled:true,createdAt:Date.now()});
-    }
-  }catch(e){}
-}
-
 async function verifyExistingSession(){
   try{
     const ss = await get(ref(db,"sessions/"+uid));
     if(!ss.exists()) return false;
-    const savedCode = ss.val().code;
+    const session = ss.val()||{};
+    const savedCode = session.code;
+    if(!savedCode) return false;
     const cs = await get(ref(db,"accessCodes/"+savedCode));
     const v = cs.val();
-    if(v && v.enabled === true && v.role === "admin"){
-      location.replace("admin.html");
+    if(v && v.enabled === true && v.role === "admin" && v.licenseId){
+      if(session.licenseId!==v.licenseId){
+        await update(ref(db,"sessions/"+uid),{licenseId:v.licenseId});
+      }
+      location.replace("admin.html?v=51");
       return true;
     }
-  }catch(e){}
+  }catch(e){console.error(e)}
   return false;
 }
 
@@ -73,7 +67,6 @@ onAuthStateChanged(auth, async user => {
     return;
   }
   uid = user.uid;
-  await bootstrapAdmin();
   if(await verifyExistingSession()) return;
   btn.disabled = false;
   msg.textContent = "";
@@ -85,18 +78,18 @@ async function login(){
   if(!uid) return msg.textContent="انتظر لحظة...";
   btn.disabled=true; msg.textContent="جاري التحقق...";
   try{
-    await set(ref(db,"sessions/"+uid),{code:entered,createdAt:Date.now()});
     const snap = await get(ref(db,"accessCodes/"+entered));
     const data = snap.val();
-    if(data && data.enabled === true && data.role === "admin"){
-      location.replace("admin.html");
+    if(!(data && data.enabled === true && data.role === "admin" && data.licenseId)){
+      msg.textContent="كود الإدارة غير صحيح أو غير مرتبط بمطعم";
       return;
     }
-    await remove(ref(db,"sessions/"+uid));
-    msg.textContent="كود الإدارة غير صحيح";
+    await set(ref(db,"sessions/"+uid),{code:entered,licenseId:data.licenseId,createdAt:Date.now()});
+    location.replace("admin.html?v=51");
   }catch(e){
     console.error(e);
-    msg.textContent="كود الإدارة غير صحيح";
+    try{await remove(ref(db,"sessions/"+uid))}catch(_){}
+    msg.textContent="تعذر تسجيل الدخول، حاول مرة أخرى";
   }finally{
     btn.disabled=false;
   }
