@@ -12,15 +12,15 @@ on:
       app_name:
         description: 'اسم التطبيق الظاهر على الهاتف'
         required: false
-        default: 'تطبيق الدلفري - السائق'
+        default: 'مطعم الياسري - دلفري'
       restaurant_id:
         description: 'معرّف المطعم لاستخدامه في اسم الملف'
         required: false
-        default: 'generic'
+        default: 'yasri'
       icon_url:
         description: 'رابط مباشر لشعار المطعم PNG/JPG (اختياري)'
         required: false
-        default: ''
+        default: 'https://i.top4top.io/p_3900rusb40.png'
 
 jobs:
   build:
@@ -41,15 +41,16 @@ jobs:
           INPUT_RESTAURANT_ID: ${{ github.event.inputs.restaurant_id }}
           INPUT_ICON_URL: ${{ github.event.inputs.icon_url }}
         run: |
-          APP_NAME="${INPUT_APP_NAME:-تطبيق الدلفري - السائق}"
-          RESTAURANT_ID="${INPUT_RESTAURANT_ID:-generic}"
+          APP_NAME="${INPUT_APP_NAME:-مطعم الياسري - دلفري}"
+          RESTAURANT_ID="${INPUT_RESTAURANT_ID:-yasri}"
+          ICON_URL="${INPUT_ICON_URL:-https://i.top4top.io/p_3900rusb40.png}"
           SAFE_ID=$(printf '%s' "$RESTAURANT_ID" | tr -cd 'A-Za-z0-9._-' | cut -c1-40)
           [ -n "$SAFE_ID" ] || SAFE_ID="generic"
           echo "SAFE_ID=$SAFE_ID" >> "$GITHUB_ENV"
 
-          python3 - <<'PY'
+          APP_NAME="$APP_NAME" python3 - <<'PY'
           import os, html
-          app_name = os.environ.get('INPUT_APP_NAME') or 'تطبيق الدلفري - السائق'
+          app_name = os.environ.get('APP_NAME') or 'مطعم الياسري - دلفري'
           value = html.escape(app_name, quote=False)
           path = 'android-app/app/src/main/res/values/strings.xml'
           with open(path, 'w', encoding='utf-8') as f:
@@ -58,8 +59,8 @@ jobs:
 
           sudo apt-get update
           sudo apt-get install -y imagemagick
-          if [ -n "$INPUT_ICON_URL" ]; then
-            curl -fL --retry 2 --connect-timeout 15 "$INPUT_ICON_URL" -o restaurant-icon
+          if [ -n "$ICON_URL" ]; then
+            curl -fL --retry 2 --connect-timeout 15 "$ICON_URL" -o restaurant-icon
             convert restaurant-icon -auto-orient -resize 512x512^ -gravity center -extent 512x512 restaurant-icon-512.png
           else
             cp admin-icon-512.png restaurant-icon-512.png
