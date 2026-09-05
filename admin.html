@@ -5,257 +5,46 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#07111f">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="إدارة الدلفري">
 <link rel="manifest" href="admin-manifest.webmanifest?v=21">
-<link rel="apple-touch-icon" sizes="180x180" href="admin-icon-180.png?v=21">
-<link rel="icon" type="image/png" sizes="192x192" href="admin-icon-192.png?v=21">
+<link rel="apple-touch-icon" href="admin-icon-180.png?v=21">
 <link rel="stylesheet" href="style.css?v=12">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <title>لوحة المطعم</title>
-<link rel="apple-touch-icon-precomposed" href="admin-icon-180.png?v=21">\n<style>
-.multi-orders-admin{grid-column:1/-1;border-top:1px solid rgba(148,163,184,.16);padding-top:10px;margin-top:4px}
-.multi-orders-admin-title{font-weight:800;margin-bottom:8px}
-.multi-orders-admin-list{display:grid;gap:7px}
-.multi-order-admin-row{display:grid;grid-template-columns:minmax(100px,1fr) minmax(160px,2fr) auto auto;gap:8px;align-items:center;padding:9px 10px;border:1px solid rgba(148,163,184,.18);border-radius:12px;background:rgba(3,15,30,.35)}
-.multi-order-admin-row .order-state{font-size:12px;padding:4px 7px;border-radius:999px;background:rgba(148,163,184,.12);white-space:nowrap}
-.multi-order-admin-row .order-state.route{background:rgba(34,197,94,.16);color:#86efac}
-.multi-order-admin-row a{white-space:nowrap}
-@media(max-width:700px){.multi-order-admin-row{grid-template-columns:1fr 1fr}.multi-order-admin-row .order-address{grid-column:1/-1}}
+<style>
+#map{height:360px}.admin-grid{display:grid;gap:12px}.code-form{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px}.driver-row,.code-row,.history-row{padding:12px;border:1px solid rgba(148,163,184,.2);border-radius:14px;margin:8px 0}.driver-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.status-on{color:#86efac}.status-off{color:#94a3b8}@media(max-width:700px){.code-form{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <main class="container" id="adminApp" hidden>
-<header class="dashboard-head">
-  <div><h1>لوحة المطعم 🛵</h1><div class="muted"><span class="presence online"></span> متابعة الدلفرين مباشرة</div></div>
-  <button id="logoutBtn" class="btn btn-dark">تسجيل الخروج</button>
-</header>
-
-<div class="summary-grid">
-  <div class="summary-card"><span>👤 الإجمالي</span><strong id="totalCount">0</strong></div>
-  <div class="summary-card"><span>🟠 خارج الدوام</span><strong id="offlineCount">0</strong></div>
-  <div class="summary-card"><span>🟢 في الدوام</span><strong id="onlineCount">0</strong></div>
-  <div class="summary-card"><span>🛵 قيد التوصيل</span><strong id="activeDeliveryCount">0</strong></div>
-  <div class="summary-card"><span>✅ تم اليوم</span><strong id="todayDeliveredCount">0</strong></div>
-</div>
-
+<header class="dashboard-head"><div><h1>لوحة المطعم 🛵</h1><div class="muted">بيانات هذا المطعم فقط</div></div><button id="logoutBtn" class="btn btn-dark">تسجيل الخروج</button></header>
+<div class="summary-grid"><div class="summary-card"><span>👤 الإجمالي</span><strong id="totalCount">0</strong></div><div class="summary-card"><span>🟢 في الدوام</span><strong id="onlineCount">0</strong></div><div class="summary-card"><span>🛵 قيد التوصيل</span><strong id="activeDeliveryCount">0</strong></div><div class="summary-card"><span>✅ تم اليوم</span><strong id="todayDeliveredCount">0</strong></div></div>
 <section class="map-card"><div id="map"></div></section>
-
-<section class="drivers-panel">
-  <div class="toolbar">
-    <input id="searchDriver" placeholder="بحث عن دلفري أو طلب...">
-    <button id="fitAllBtn" class="btn btn-primary">🗺️ عرض الجميع</button>
-    <button id="refreshBtn" class="btn btn-dark">↻ تحديث</button>
-  </div>
-  <h2>الدلفريات</h2>
-  <div id="driverList" class="driver-list"></div>
-</section>
-
-<section class="drivers-panel">
-  <div class="section-line"><h2>إدارة الدلفريين والأكواد</h2><span class="muted small">إضافة، تعطيل أو حذف كود الدخول</span></div>
-  <div class="code-form">
-    <input id="newDriverName" placeholder="اسم الدلفري">
-    <input id="newDriverPhone" inputmode="tel" placeholder="رقم الهاتف">
-    <input id="newDriverCode" placeholder="كود الدخول، مثال: 2580">
-    <button id="addDriverCodeBtn" class="btn btn-primary">+ إضافة دلفري</button>
-  </div>
-  <div id="codeList" class="code-list"></div>
-</section>
-
-<section class="drivers-panel report-panel">
-  <div class="section-line"><h2>تقرير اليوم</h2><span class="muted small">يتحدث تلقائياً</span></div>
-  <div class="daily-report-grid">
-    <div class="stat-card"><span class="muted small">طلبات اليوم</span><strong id="reportOrders">0</strong></div>
-    <div class="stat-card"><span class="muted small">متوسط التوصيل</span><strong id="reportAvg">—</strong></div>
-    <div class="stat-card"><span class="muted small">النقد المحصل</span><strong id="reportCash">0 د.ع</strong></div>
-    <div class="stat-card"><span class="muted small">أسرع توصيل</span><strong id="reportFastest">—</strong></div>
-  </div>
-  <div id="driverDailyReport" class="history-list" style="margin-top:10px"></div>
-</section>
-
-<section class="drivers-panel history-panel">
-  <div class="section-line"><h2>سجل الطلبات المكتملة</h2><span class="muted small">أحدث الطلبات أولاً</span></div>
-  <div id="historyList" class="history-list"></div>
-</section>
-
-<div class="muted small auto-note">تتحدث المواقع تلقائياً أثناء عمل التتبع</div>
+<section class="drivers-panel"><div class="toolbar"><input id="searchDriver" placeholder="بحث عن دلفري أو طلب..."><button id="fitAllBtn" class="btn btn-primary">🗺️ عرض الجميع</button></div><h2>الدلفريات</h2><div id="driverList"></div></section>
+<section class="drivers-panel"><h2>إدارة الدلفريين والأكواد</h2><div class="code-form"><input id="newDriverName" placeholder="اسم الدلفري"><input id="newDriverPhone" inputmode="tel" placeholder="رقم الهاتف"><input id="newDriverCode" placeholder="كود الدخول"><button id="addDriverCodeBtn" class="btn btn-primary">+ إضافة دلفري</button></div><div id="codeList"></div></section>
+<section class="drivers-panel"><h2>سجل الطلبات المكتملة</h2><div id="historyList"></div></section>
 </main>
-
 <div id="adminLoading" class="login-shell"><section class="login-card"><div class="login-icon">🔐</div><h2>جاري التحقق من صلاحية الإدارة...</h2></section></div>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
 import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getDatabase, ref, onValue, get, set, update, remove } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
-
-const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getDatabase(app);
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-let uid=null, initialized=false;
-const map=L.map("map",{zoomControl:true}).setView([30.50,47.78],12);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
-
-const list=document.getElementById("driverList"), historyList=document.getElementById("historyList"), search=document.getElementById("searchDriver"), codeList=document.getElementById("codeList");
-const markers={}, orderMarkers={}; let points=[], dataEntries=[], historyEntries=[], codeEntries=[], firstFit=true;
-
-function isActive(d){return !!(d.online&&d.shift&&Date.now()-(d.updatedAt||0)<90000&&typeof d.lat==="number"&&typeof d.lng==="number")}
-function orderStatusLabel(s){return {ready:"جاهز للتوصيل",received:"جاهز للتوصيل",on_route:"جاري التوصيل",arrived:"جاري التوصيل",delivered:"تم التسليم"}[s]||"بدون حالة"}
-function activeOrderList(d){
-  const a=d&&d.activeOrders;
-  if(Array.isArray(a))return a.filter(Boolean);
-  if(a&&typeof a==="object")return Object.values(a).filter(Boolean);
-  if(d&&d.orderId)return [{orderId:d.orderId,orderLocation:d.orderLocation,orderLocationMode:d.orderLocationMode,orderLat:d.orderLat,orderLng:d.orderLng,status:d.orderStatus,deliveryStartedAt:d.deliveryStartedAt}];
-  return [];
-}
-function mapsUrlOrder(o){if(typeof o.orderLat==="number"&&typeof o.orderLng==="number")return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(o.orderLat+","+o.orderLng)}`;if(o.orderLocation)return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.orderLocation)}`;return ""}
-function activeOrdersHtml(d){
-  const orders=activeOrderList(d);
-  if(!orders.length)return '<div class="multi-orders-admin"><div class="multi-orders-admin-title">📦 الطلبات الحالية: 0</div><div class="muted small">جاهز لاستلام طلب جديد</div></div>';
-  return '<div class="multi-orders-admin"><div class="multi-orders-admin-title">📦 الطلبات الحالية: '+orders.length+'</div><div class="multi-orders-admin-list">'+orders.map(o=>{
-    const route=o.status==="on_route", mins=o.deliveryStartedAt?Math.max(0,Math.floor((Date.now()-o.deliveryStartedAt)/60000)):null,link=mapsUrlOrder(o);
-    const extras=[o.customerPhone?("📞 "+esc(o.customerPhone)):"",Number(o.amount)>0?("💰 "+Number(o.amount).toLocaleString("ar-IQ")+" د.ع · "+(o.paymentMode==="paid"?"مدفوع":"نقدي")):"",o.notes?("📝 "+esc(o.notes)):""].filter(Boolean).join(" · ");
-    return '<div class="multi-order-admin-row"><b>#'+esc(o.orderId||"—")+'</b><span class="order-address">'+esc(o.orderLocation||(o.orderLocationMode==="map"?"محدد على الخريطة":"—"))+(extras?'<small style="display:block;margin-top:4px;color:#94a3b8">'+extras+'</small>':'')+'</span><span class="order-state '+(route?"route":"")+'">'+(route?"🛵 جاري التوصيل":"جاهز")+(mins!==null?" · "+mins+" د":"")+'</span>'+(link?'<a class="btn btn-dark" target="_blank" rel="noopener" href="'+esc(link)+'">🗺️ الموقع</a>':'<span></span>')+'</div>';
-  }).join('')+'</div></div>';
-}
-function scooterIcon(active,late=false){return L.divIcon({className:"scooter-icon-wrap",html:`<div class="scooter-pin ${active?"on":"off"} ${late?"late":""}"><span>🛵</span></div>`,iconSize:[52,52],iconAnchor:[26,26]})}
-function focusDriver(id){if(markers[id]){map.setView(markers[id].getLatLng(),17,{animate:true});markers[id].openPopup()}}
-function focusOrder(id,d){if(typeof d.orderLat==="number"&&typeof d.orderLng==="number"){map.setView([d.orderLat,d.orderLng],17,{animate:true});if(orderMarkers[id])orderMarkers[id].openPopup()}}
-function mapsUrl(d){if(typeof d.orderLat==="number"&&typeof d.orderLng==="number")return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(d.orderLat+","+d.orderLng)}`;if(d.orderLocation)return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.orderLocation)}`;return ""}
-
-async function verifyAdmin(){
-  const ss=await get(ref(db,"sessions/"+uid));
-  if(!ss.exists()) return false;
-  const code=ss.val().code;
-  const cs=await get(ref(db,"accessCodes/"+code));
-  const v=cs.val();
-  return !!(v&&v.enabled===true&&v.role==="admin");
-}
-
-async function deleteDriver(id,name,driverData={}){
-  if(!confirm("هل تريد حذف "+(name||"هذا الدلفري")+" نهائياً من النظام؟\n\nسيتم حذف: بياناته الحالية + موقعه + جلسته + كود دخوله.\nسيبقى سجل الطلبات المكتملة محفوظاً."))return;
-  const driverCode=String(driverData.code||"").trim();
-  try{
-    const tasks=[
-      remove(ref(db,"drivers/"+id)),
-      remove(ref(db,"sessions/"+id))
-    ];
-    if(driverCode)tasks.push(remove(ref(db,"accessCodes/"+driverCode)));
-    await Promise.all(tasks);
-    dataEntries=dataEntries.filter(([driverId])=>driverId!==id);
-    if(driverCode)codeEntries=codeEntries.filter(([code])=>code!==driverCode);
-    if(markers[id]){map.removeLayer(markers[id]);delete markers[id]}
-    if(orderMarkers[id]){map.removeLayer(orderMarkers[id]);delete orderMarkers[id]}
-    renderDrivers();
-    renderCodes();
-    alert("تم حذف الدلفري من النظام بنجاح");
-  }catch(e){
-    console.error(e);
-    alert("تعذر حذف الدلفري بالكامل. تأكد من نشر قواعد Firebase الجديدة.");
-  }
-}
-
-function renderDrivers(){
-  const q=search.value.trim().toLowerCase(); list.innerHTML=""; points=[]; let online=0,activeDeliveryTotal=0;
-  dataEntries.sort((a,b)=>Number(isActive(b[1]))-Number(isActive(a[1]))||(b[1].updatedAt||0)-(a[1].updatedAt||0));
-  dataEntries.forEach(([id,d])=>{
-    const active=isActive(d), hasLocation=typeof d.lat==="number"&&typeof d.lng==="number", hasOrderPoint=typeof d.orderLat==="number"&&typeof d.orderLng==="number", activeOrders=activeOrderList(d);
-    const ageMs=Date.now()-(d.updatedAt||0), stale=!!(d.shift&&d.updatedAt&&ageMs>120000);
-    const driverState=d.driverState||(activeOrders.some(o=>o.status==="on_route")?"delivering":d.returningToRestaurant?"returning":active?"available":"offline");
-    const stateText={available:"🟢 متاح",delivering:"🛵 لديه طلب",returning:"🟠 عائد للمطعم",offline:"⚫ خارج الدوام"}[driverState]||"—";
-    const routeOrders=activeOrders.filter(o=>o.status==="on_route"&&o.deliveryStartedAt);
-    activeDeliveryTotal+=routeOrders.length;
-    const late=routeOrders.some(o=>Date.now()-o.deliveryStartedAt>45*60000);
-    const minutes=routeOrders.length?Math.max(...routeOrders.map(o=>Math.max(0,Math.floor((Date.now()-o.deliveryStartedAt)/60000)))):null;
-    if(active)online++;
-    if(hasLocation){
-      if(!markers[id])markers[id]=L.marker([d.lat,d.lng],{icon:scooterIcon(active,late)}).addTo(map);else{markers[id].setLatLng([d.lat,d.lng]);markers[id].setIcon(scooterIcon(active,late))}
-      markers[id].bindTooltip(esc(d.name||"دلفري"),{permanent:true,direction:"top",className:"driver-name-label",offset:[0,-23]});
-      markers[id].bindPopup(`<div dir="rtl" class="map-popup"><b>${esc(d.name||"دلفري")}</b><br>📞 ${esc(d.phone||"لا يوجد رقم")}<br>📦 ${esc(d.orderId||"لا يوجد")}<br>📍 ${esc(d.orderLocation||"غير محدد")}<br>الحالة: ${orderStatusLabel(d.orderStatus)}<br>${active?"🟢 في الدوام":"⚪ خارج الدوام"}</div>`);
-      if(active)points.push([d.lat,d.lng]);
-    }
-    if(hasOrderPoint){
-      if(!orderMarkers[id])orderMarkers[id]=L.marker([d.orderLat,d.orderLng],{icon:L.divIcon({className:"order-pin-wrap",html:'<div class="order-pin">📦</div>',iconSize:[42,42],iconAnchor:[21,38]})}).addTo(map);else orderMarkers[id].setLatLng([d.orderLat,d.orderLng]);
-      orderMarkers[id].bindPopup(`<div dir="rtl"><b>مكان طلب ${esc(d.name||"دلفري")}</b><br>📦 ${esc(d.orderId||"بدون رقم")}</div>`);
-    }else if(orderMarkers[id]){map.removeLayer(orderMarkers[id]);delete orderMarkers[id]}
-    if(q&&!String(d.name||"").toLowerCase().includes(q)&&!String(d.phone||"").includes(q)&&!activeOrders.some(o=>String(o.orderId||"").toLowerCase().includes(q)))return;
-    const mapLink=mapsUrl(d),el=document.createElement("div");el.className="driver-item modern-row "+(late?"late-row":"");
-    el.innerHTML=`<div class="driver-profile"><div class="mini-scooter">🛵</div><div><strong>${esc(d.name||"دلفري")}</strong><div class="connect ${stale?"no":active?"yes":"no"}">${stale?"⚠️ الموقع متوقف منذ "+Math.floor(ageMs/60000)+" د":active?"● متصل الآن":"● خارج الدوام"}</div></div></div><div class="info-cell"><span>الطلبات الحالية</span><b>${activeOrders.length}</b></div><div class="info-cell"><span>رقم الدلفري</span><b>${esc(d.phone||"—")}</b></div><div class="info-cell"><span>حالة السائق</span><b>${stateText}</b></div><div class="info-cell"><span>أطول مدة توصيل</span><b class="${late?"late-text":""}">${minutes!==null?minutes+" دقيقة":"—"}${late?" ⚠️":""}</b></div><div class="driver-actions"><button class="btn btn-primary focus" ${hasLocation?"":"disabled"}>عرض الموقع</button>${d.phone?'<a class="btn btn-dark" href="tel:'+esc(d.phone)+'">📞 اتصال</a>':""}<button class="btn btn-danger delete">حذف</button></div>${activeOrdersHtml(d)}`;
-    el.querySelector(".focus").onclick=()=>focusDriver(id);el.querySelector(".delete").onclick=()=>deleteDriver(id,d.name,d);list.appendChild(el);
-  });
-  document.getElementById("onlineCount").textContent=online;document.getElementById("offlineCount").textContent=Math.max(dataEntries.length-online,0);document.getElementById("totalCount").textContent=dataEntries.length;document.getElementById("activeDeliveryCount").textContent=activeDeliveryTotal;
-  if(!list.children.length)list.innerHTML='<div class="driver-item">لا توجد نتائج.</div>';
-  if(firstFit&&points.length){map.fitBounds(points,{padding:[50,50],maxZoom:16});firstFit=false}
-}
-
-function renderHistory(){
-  historyList.innerHTML="";
-  const startToday=new Date();startToday.setHours(0,0,0,0);
-  const todayCount=historyEntries.filter(([,h])=>(h?.deliveredAt||0)>=startToday.getTime()).length;
-  document.getElementById("todayDeliveredCount").textContent=todayCount;
-  const todayRows=historyEntries.filter(([,h])=>(h?.deliveredAt||0)>=startToday.getTime());
-  const durations=todayRows.map(([,h])=>Number(h.durationMs)||0).filter(Boolean);
-  const cashTotal=todayRows.reduce((sum,[,h])=>sum+(h.paymentMode==="cash"?(Number(h.amount)||0):0),0);
-  document.getElementById("reportOrders").textContent=todayRows.length;
-  document.getElementById("reportAvg").textContent=durations.length?Math.round(durations.reduce((x,y)=>x+y,0)/durations.length/60000)+" دقيقة":"—";
-  document.getElementById("reportFastest").textContent=durations.length?Math.round(Math.min(...durations)/60000)+" دقيقة":"—";
-  document.getElementById("reportCash").textContent=cashTotal.toLocaleString("ar-IQ")+" د.ع";
-  const byDriver={};todayRows.forEach(([,h])=>{const k=h.name||"دلفري";if(!byDriver[k])byDriver[k]={count:0,cash:0};byDriver[k].count++;if(h.paymentMode==="cash")byDriver[k].cash+=Number(h.amount)||0});
-  const driverReport=document.getElementById("driverDailyReport");driverReport.innerHTML="";
-  Object.entries(byDriver).sort((a,b)=>b[1].count-a[1].count).forEach(([n,v])=>{const el=document.createElement("div");el.className="driver-item";el.innerHTML="<strong>"+esc(n)+"</strong><div class=\"muted small\" style=\"margin-top:5px\">📦 "+v.count+" طلب · 💵 "+v.cash.toLocaleString("ar-IQ")+" د.ع نقدي</div>";driverReport.appendChild(el)});
-  if(!driverReport.children.length)driverReport.innerHTML='<div class="driver-item">لا توجد بيانات لليوم حتى الآن.</div>';
-  const rows=[...historyEntries].sort((a,b)=>(b[1].deliveredAt||0)-(a[1].deliveredAt||0)).slice(0,30);
-  rows.forEach(([id,h])=>{const mins=h.durationMs?Math.round(h.durationMs/60000):null,el=document.createElement("div");el.className="history-item";el.innerHTML=`<div><strong>${esc(h.name||"دلفري")}</strong><div class="muted small">طلب #${esc(h.orderId||"—")}</div></div><div><span>مكان الطلب</span><b>${esc(h.orderLocation||(h.orderLat?"محدد على الخريطة":"—"))}</b></div><div><span>مدة التوصيل</span><b>${mins!==null?mins+" دقيقة":"—"}</b></div><div><span>وقت التسليم</span><b>${h.deliveredAt?new Date(h.deliveredAt).toLocaleString("ar-IQ"):"—"}</b></div>`;historyList.appendChild(el)});
-  if(!rows.length)historyList.innerHTML='<div class="driver-item">لا توجد طلبات مكتملة حتى الآن.</div>';
-}
-
-function renderCodes(){
-  codeList.innerHTML="";
-  codeEntries.filter(([code,v])=>v&&v.role==="driver").sort((a,b)=>(b[1].createdAt||0)-(a[1].createdAt||0)).forEach(([code,v])=>{
-    const el=document.createElement("div");el.className="code-item";
-    el.innerHTML=`<div><strong>${esc(v.name||"دلفري")}</strong><div class="muted small">📞 ${esc(v.phone||"—")}</div></div><div class="code-badge">${esc(code)}</div><div class="${v.enabled?"green":"late-text"}">${v.enabled?"فعال":"متوقف"}</div><div class="code-actions"><button class="btn btn-dark toggle-code">${v.enabled?"إيقاف":"تفعيل"}</button><button class="btn btn-danger delete-code">حذف</button></div>`;
-    el.querySelector(".toggle-code").onclick=()=>update(ref(db,"accessCodes/"+code),{enabled:!v.enabled});
-    el.querySelector(".delete-code").onclick=async()=>{if(confirm("حذف كود "+(v.name||"الدلفري")+"؟"))await remove(ref(db,"accessCodes/"+code))};
-    codeList.appendChild(el);
-  });
-  if(!codeList.children.length)codeList.innerHTML='<div class="driver-item">لا توجد أكواد دلفري بعد.</div>';
-}
-
-document.getElementById("addDriverCodeBtn").onclick=async()=>{
-  const name=document.getElementById("newDriverName").value.trim(),phone=document.getElementById("newDriverPhone").value.trim(),code=document.getElementById("newDriverCode").value.trim();
-  if(!name||!code)return alert("اكتب اسم الدلفري وكود الدخول");
-  if(code.length<4||/[.#$\[\]\/]/.test(code))return alert("الكود يجب أن يكون 4 أحرف/أرقام على الأقل ولا يحتوي . # $ [ ] /");
-  const exists=await get(ref(db,"accessCodes/"+code));if(exists.exists())return alert("هذا الكود مستخدم مسبقاً");
-  await set(ref(db,"accessCodes/"+code),{role:"driver",name,phone,enabled:true,createdAt:Date.now()});
-  document.getElementById("newDriverName").value="";document.getElementById("newDriverPhone").value="";document.getElementById("newDriverCode").value="";
-};
-
-search.oninput=renderDrivers;document.getElementById("fitAllBtn").onclick=()=>points.length&&map.fitBounds(points,{padding:[50,50],maxZoom:16});document.getElementById("refreshBtn").onclick=()=>{map.invalidateSize();renderDrivers();renderHistory()};
-document.getElementById("logoutBtn").onclick=async()=>{try{await remove(ref(db,"sessions/"+uid))}catch(e){}await signOut(auth);location.replace("./")};
-
-function startListeners(){
-  if(initialized)return;initialized=true;
-  onValue(ref(db,"drivers"),s=>{dataEntries=Object.entries(s.val()||{});renderDrivers()});
-  onValue(ref(db,"deliveryHistory"),s=>{historyEntries=[];const raw=s.val()||{};Object.entries(raw).forEach(([k,v])=>{if(v&&typeof v==="object"&&!("deliveredAt" in v))Object.entries(v).forEach(([sub,item])=>historyEntries.push([k+"_"+sub,item]));else historyEntries.push([k,v])});renderHistory()});
-  onValue(ref(db,"accessCodes"),s=>{codeEntries=Object.entries(s.val()||{});renderCodes()});
-  setInterval(renderDrivers,15000);
-}
-
-onAuthStateChanged(auth,async user=>{
-  if(!user){try{await signInAnonymously(auth)}catch(e){location.replace("./")}return}
-  uid=user.uid;
-  try{
-    if(!(await verifyAdmin())){location.replace("./");return}
-    document.getElementById("adminLoading").hidden=true;document.getElementById("adminApp").hidden=false;setTimeout(()=>map.invalidateSize(),100);startListeners();
-  }catch(e){location.replace("./")}
-});
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js?v=12').catch(()=>{});
-  });
-}
+const app=initializeApp(firebaseConfig),auth=getAuth(app),db=getDatabase(app),$=id=>document.getElementById(id),esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+let uid=null,adminLicenseId=null,drivers=[],history=[],codes=[],initialized=false,points=[];const markers={};
+const map=L.map("map").setView([30.50,47.78],12);L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:"&copy; OpenStreetMap"}).addTo(map);
+function active(d){return !!(d.online&&d.shift&&Date.now()-(d.updatedAt||0)<90000&&typeof d.lat==="number"&&typeof d.lng==="number")}
+function orders(d){const a=d?.activeOrders;if(Array.isArray(a))return a.filter(Boolean);if(a&&typeof a==="object")return Object.values(a).filter(Boolean);return d?.orderId?[{orderId:d.orderId,status:d.orderStatus,orderLocation:d.orderLocation}]:[]}
+async function verifyAdmin(){const s=await get(ref(db,"sessions/"+uid));if(!s.exists())return false;const session=s.val()||{},code=session.code,c=await get(ref(db,"accessCodes/"+code)),v=c.val();if(!(v&&v.role==="admin"&&v.enabled===true&&typeof v.licenseId==="string"&&v.licenseId))return false;adminLicenseId=v.licenseId;return session.licenseId===adminLicenseId}
+function renderDrivers(){const q=$("searchDriver").value.trim().toLowerCase();$("driverList").innerHTML="";points=[];let on=0,route=0;drivers.forEach(([id,d])=>{const isOn=active(d),os=orders(d);if(isOn)on++;route+=os.filter(o=>o.status==="on_route").length;if(typeof d.lat==="number"&&typeof d.lng==="number"){if(!markers[id])markers[id]=L.marker([d.lat,d.lng]).addTo(map);else markers[id].setLatLng([d.lat,d.lng]);markers[id].bindPopup(`<div dir="rtl"><b>${esc(d.name||"دلفري")}</b><br>📞 ${esc(d.phone||"—")}</div>`);if(isOn)points.push([d.lat,d.lng])}if(q&&!String(d.name||"").toLowerCase().includes(q)&&!String(d.phone||"").includes(q)&&!os.some(o=>String(o.orderId||"").toLowerCase().includes(q)))return;const el=document.createElement("div");el.className="driver-row";el.innerHTML=`<strong>${esc(d.name||"دلفري")}</strong><div class="${isOn?'status-on':'status-off'}">${isOn?'● متصل الآن':'● خارج الدوام'}</div><div class="muted small">📞 ${esc(d.phone||"—")} · 📦 ${os.length} طلب</div><div class="driver-actions"><button class="btn btn-primary focus" ${typeof d.lat==="number"?'':'disabled'}>عرض الموقع</button>${d.phone?`<a class="btn btn-dark" href="tel:${esc(d.phone)}">📞 اتصال</a>`:''}<button class="btn btn-danger delete">حذف</button></div>`;el.querySelector(".focus").onclick=()=>{if(markers[id]){map.setView(markers[id].getLatLng(),17);markers[id].openPopup()}};el.querySelector(".delete").onclick=()=>deleteDriver(id,d);$("driverList").appendChild(el)});$("totalCount").textContent=drivers.length;$("onlineCount").textContent=on;$("activeDeliveryCount").textContent=route;if(!$("driverList").children.length)$("driverList").innerHTML='<div class="driver-row">لا توجد نتائج.</div>'}
+async function deleteDriver(id,d){if(!confirm("حذف هذا الدلفري؟"))return;const code=String(d.code||"").trim();await Promise.all([remove(ref(db,"restaurants/"+adminLicenseId+"/drivers/"+id)),remove(ref(db,"drivers/"+id)),remove(ref(db,"sessions/"+id)),code?remove(ref(db,"accessCodes/"+code)):Promise.resolve()])}
+function renderCodes(){$("codeList").innerHTML="";codes.filter(([,v])=>v&&v.role==="driver"&&v.licenseId===adminLicenseId).forEach(([code,v])=>{const el=document.createElement("div");el.className="code-row";el.innerHTML=`<strong>${esc(v.name||"دلفري")}</strong><div class="muted small">📞 ${esc(v.phone||"—")} · الكود: ${esc(code)} · ${v.enabled?'فعال':'متوقف'}</div><div class="driver-actions"><button class="btn btn-dark toggle">${v.enabled?'إيقاف':'تفعيل'}</button><button class="btn btn-danger del">حذف</button></div>`;el.querySelector(".toggle").onclick=()=>update(ref(db,"accessCodes/"+code),{enabled:!v.enabled});el.querySelector(".del").onclick=()=>confirm("حذف الكود؟")&&remove(ref(db,"accessCodes/"+code));$("codeList").appendChild(el)});if(!$("codeList").children.length)$("codeList").innerHTML='<div class="code-row">لا توجد أكواد دلفري بعد.</div>'}
+function renderHistory(){const start=new Date();start.setHours(0,0,0,0);$("todayDeliveredCount").textContent=history.filter(([,h])=>(h?.deliveredAt||0)>=start.getTime()).length;$("historyList").innerHTML="";[...history].sort((a,b)=>(b[1]?.deliveredAt||0)-(a[1]?.deliveredAt||0)).slice(0,30).forEach(([,h])=>{const el=document.createElement("div");el.className="history-row";el.innerHTML=`<strong>${esc(h.name||"دلفري")}</strong><div class="muted small">طلب #${esc(h.orderId||"—")} · ${esc(h.orderLocation||"—")}</div><div class="muted small">${h.deliveredAt?new Date(h.deliveredAt).toLocaleString("ar-IQ"):"—"}</div>`;$("historyList").appendChild(el)});if(!$("historyList").children.length)$("historyList").innerHTML='<div class="history-row">لا توجد طلبات مكتملة حتى الآن.</div>'}
+$("addDriverCodeBtn").onclick=async()=>{const name=$("newDriverName").value.trim(),phone=$("newDriverPhone").value.trim(),code=$("newDriverCode").value.trim();if(!name||!code)return alert("اكتب اسم الدلفري وكود الدخول");if(code.length<4||/[.#$\[\]\/]/.test(code))return alert("الكود غير صالح");const exists=await get(ref(db,"accessCodes/"+code));if(exists.exists())return alert("هذا الكود مستخدم مسبقاً");await set(ref(db,"accessCodes/"+code),{role:"driver",name,phone,enabled:true,licenseId:adminLicenseId,createdAt:Date.now()});$("newDriverName").value="";$("newDriverPhone").value="";$("newDriverCode").value=""};
+function listen(){if(initialized)return;initialized=true;onValue(ref(db,"restaurants/"+adminLicenseId+"/drivers"),s=>{drivers=Object.entries(s.val()||{});renderDrivers()});onValue(ref(db,"restaurants/"+adminLicenseId+"/deliveryHistory"),s=>{history=[];const raw=s.val()||{};Object.entries(raw).forEach(([k,v])=>{if(v&&typeof v==="object"&&!("deliveredAt" in v))Object.entries(v).forEach(([sub,item])=>history.push([k+"_"+sub,item]));else history.push([k,v])});renderHistory()});onValue(ref(db,"accessCodes"),s=>{codes=Object.entries(s.val()||{});renderCodes()});setInterval(renderDrivers,15000)}
+$("searchDriver").oninput=renderDrivers;$("fitAllBtn").onclick=()=>points.length&&map.fitBounds(points,{padding:[50,50],maxZoom:16});$("logoutBtn").onclick=async()=>{try{await remove(ref(db,"sessions/"+uid))}catch(e){}await signOut(auth);location.replace("./")};
+onAuthStateChanged(auth,async user=>{if(!user){try{await signInAnonymously(auth)}catch(e){location.replace("./")}return}uid=user.uid;try{if(!(await verifyAdmin())){location.replace("./");return}$("adminLoading").hidden=true;$("adminApp").hidden=false;setTimeout(()=>map.invalidateSize(),100);listen()}catch(e){console.error(e);location.replace("./")}});
 </script>
 </body>
 </html>
