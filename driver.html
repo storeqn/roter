@@ -39,6 +39,15 @@ let deviceId="";
 
 const DEVICE_KEY="roterDeviceId";
 
+function getNativeDeviceId(){
+  try{
+    if(window.AndroidBridge && typeof window.AndroidBridge.getDeviceId==="function"){
+      const id=String(window.AndroidBridge.getDeviceId()||"").trim();
+      if(id)return id;
+    }
+  }catch(e){console.error("native device id",e)}
+  return "";
+}
 function cookieGet(name){
   const p=document.cookie.split("; ").find(v=>v.startsWith(name+"="));
   return p?decodeURIComponent(p.split("=").slice(1).join("=")):"";
@@ -83,6 +92,9 @@ async function idbSet(value){
   }catch{}
 }
 async function getDeviceId(){
+  const nativeId=getNativeDeviceId();
+  if(nativeId)return nativeId;
+
   let id="";
   try{id=localStorage.getItem(DEVICE_KEY)||""}catch{}
   if(!id)id=await idbGet();
@@ -106,7 +118,7 @@ async function ensureAnonymous(){
 
 function showWaiting(){
   $("driverLoginMsg").textContent="⏳ هذا الجهاز بانتظار موافقة مالك النظام";
-  $("driverDebug").textContent="رقم الجهاز: "+deviceId.slice(0,8)+"…";
+  $("driverDebug").textContent="رقم الجهاز: "+deviceId.slice(0,12)+"…";
 }
 
 async function ensureDeviceApproval(code,licenseId){
@@ -123,6 +135,7 @@ async function ensureDeviceApproval(code,licenseId){
     approved:false,
     uid,
     code,
+    source:getNativeDeviceId()?"android-app":"browser",
     createdAt:Date.now()
   }));
   showWaiting();
@@ -195,10 +208,10 @@ $("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")login()});
   onAuthStateChanged(auth,async user=>{
     if(user){
       uid=user.uid;
-      $("driverDebug").textContent="متصل بالنظام";
+      $("driverDebug").textContent=getNativeDeviceId()?"متصل من تطبيق السائق":"متصل بالنظام";
       await checkExisting();
     }else{
-      try{await ensureAnonymous();$("driverDebug").textContent="متصل بالنظام"}catch(e){$("driverDebug").textContent="تعذر الاتصال بالنظام"}
+      try{await ensureAnonymous();$("driverDebug").textContent=getNativeDeviceId()?"متصل من تطبيق السائق":"متصل بالنظام"}catch(e){$("driverDebug").textContent="تعذر الاتصال بالنظام"}
     }
   });
 })();
