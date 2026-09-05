@@ -1,0 +1,20 @@
+{
+  "id": "./owner-pwa-v1",
+  "name": "إدارة التوصيل",
+  "short_name": "إدارة التوصيل",
+  "start_url": "./owner.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "lang": "ar",
+  "dir": "rtl",
+  "icons": [
+    {
+      "src": "./owner-icon.svg?v=1",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
