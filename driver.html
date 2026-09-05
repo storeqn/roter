@@ -28,7 +28,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+import { getAuth, signInAnonymously, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
 import { getDatabase, ref, get, set } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-database.js";
 import { firebaseConfig } from "./firebase-config.js";
 
@@ -36,6 +36,7 @@ const app=initializeApp(firebaseConfig), auth=getAuth(app), db=getDatabase(app);
 const $=id=>document.getElementById(id);
 let uid=null;
 let deviceId="";
+let loginRunning=false;
 
 const DEVICE_KEY="roterDeviceId";
 
@@ -56,7 +57,7 @@ function cookieSet(name,value){
   document.cookie=name+"="+encodeURIComponent(value)+"; Max-Age=31536000; Path=/; SameSite=Lax; Secure";
 }
 function openDeviceDb(){
-  return new Promise((resolve,reject)=>{
+  return new Promise(resolve=>{
     if(!("indexedDB" in window))return resolve(null);
     const req=indexedDB.open("roterDeviceStore",1);
     req.onupgradeneeded=()=>{
@@ -94,7 +95,6 @@ async function idbSet(value){
 async function getDeviceId(){
   const nativeId=getNativeDeviceId();
   if(nativeId)return nativeId;
-
   let id="";
   try{id=localStorage.getItem(DEVICE_KEY)||""}catch{}
   if(!id)id=await idbGet();
@@ -110,10 +110,15 @@ function withTimeout(promise,ms=10000){
   return Promise.race([promise,new Promise((_,reject)=>setTimeout(()=>reject(new Error("timeout")),ms))]);
 }
 
-async function ensureAnonymous(){
+async function ensureAnonymous(forceFresh=false){
+  if(forceFresh && auth.currentUser){
+    try{await signOut(auth)}catch(e){}
+    uid=null;
+  }
   if(auth.currentUser){uid=auth.currentUser.uid;return auth.currentUser}
   const cred=await withTimeout(signInAnonymously(auth));
-  uid=cred.user.uid;return cred.user;
+  uid=cred.user.uid;
+  return cred.user;
 }
 
 function showWaiting(){
@@ -142,6 +147,15 @@ async function ensureDeviceApproval(code,licenseId){
   return false;
 }
 
+async function saveSession(code,licenseId){
+  await withTimeout(set(ref(db,"sessions/"+uid),{
+    code,
+    licenseId,
+    deviceId,
+    createdAt:Date.now()
+  }));
+}
+
 async function checkExisting(){
   try{
     if(!uid||!deviceId)return false;
@@ -149,56 +163,78 @@ async function checkExisting(){
     if(!ss.exists())return false;
     const session=ss.val()||{};
     const code=session.code;
+    if(!code)return false;
     const cs=await get(ref(db,"accessCodes/"+code));
     const v=cs.val();
     if(v&&v.enabled===true&&v.role==="driver"){
       const licenseId=v.licenseId||session.licenseId||"";
       if(session.deviceId!==deviceId||session.licenseId!==licenseId){
-        await set(ref(db,"sessions/"+uid),{
-          code,
-          licenseId,
-          deviceId,
-          createdAt:session.createdAt||Date.now()
-        });
+        await saveSession(code,licenseId);
       }
       const approved=await ensureDeviceApproval(code,licenseId);
       if(!approved)return false;
-      location.replace("driver-app.html");
+      location.replace("driver-app.html?v=40");
       return true;
     }
-  }catch(e){console.error(e)}
+  }catch(e){console.error("existing session",e)}
   return false;
 }
 
+async function attemptLogin(code,forceFresh=false){
+  await ensureAnonymous(forceFresh);
+  const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)));
+  const v=codeSnap.val();
+  if(!(v&&v.enabled===true&&v.role==="driver")){
+    const err=new Error("invalid-code");
+    err.kind="invalid-code";
+    throw err;
+  }
+  const licenseId=v.licenseId||"";
+  if(!licenseId)throw new Error("missing-license");
+  await saveSession(code,licenseId);
+  const approved=await ensureDeviceApproval(code,licenseId);
+  if(!approved)return false;
+  location.replace("driver-app.html?v=40");
+  return true;
+}
+
 async function login(){
+  if(loginRunning)return;
   const code=$("driverCode").value.trim();
   if(!code)return $("driverLoginMsg").textContent="اكتب كود الدلفري";
+  loginRunning=true;
   $("driverLoginBtn").disabled=true;
   $("driverLoginMsg").textContent="جاري التحقق...";
+  $("driverDebug").textContent="متصل بالنظام";
   try{
     if(!deviceId)deviceId=await getDeviceId();
-    await ensureAnonymous();
-    const codeSnap=await withTimeout(get(ref(db,"accessCodes/"+code)));
-    const v=codeSnap.val();
-    if(!(v&&v.enabled===true&&v.role==="driver")){
-      $("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
-      return;
+    try{
+      await attemptLogin(code,false);
+    }catch(firstError){
+      const msg=String(firstError?.message||"");
+      if(firstError?.kind==="invalid-code"||msg.includes("invalid-code"))throw firstError;
+      console.warn("retry login with fresh anonymous session",firstError);
+      $("driverLoginMsg").textContent="إعادة تهيئة الجلسة...";
+      await attemptLogin(code,true);
     }
-    const licenseId=v.licenseId||"";
-    await withTimeout(set(ref(db,"sessions/"+uid),{
-      code,
-      licenseId,
-      deviceId,
-      createdAt:Date.now()
-    }));
-    const approved=await ensureDeviceApproval(code,licenseId);
-    if(!approved)return;
-    location.replace("driver-app.html");
   }catch(e){
-    console.error(e);
+    console.error("driver login failed",e);
     const msg=String(e?.message||"");
-    $("driverLoginMsg").textContent=msg.includes("timeout")?"انتهت مهلة الاتصال، حاول مرة أخرى":"تعذر تسجيل الدخول";
-  }finally{$("driverLoginBtn").disabled=false}
+    if(e?.kind==="invalid-code"||msg.includes("invalid-code")){
+      $("driverLoginMsg").textContent="الكود غير صحيح أو متوقف";
+    }else if(msg.includes("missing-license")){
+      $("driverLoginMsg").textContent="الكود غير مرتبط بالمطعم";
+    }else if(msg.includes("timeout")){
+      $("driverLoginMsg").textContent="انتهت مهلة الاتصال، حاول مرة أخرى";
+    }else if(msg.toLowerCase().includes("permission")){
+      $("driverLoginMsg").textContent="تعذر إنشاء جلسة آمنة، حاول مرة أخرى";
+    }else{
+      $("driverLoginMsg").textContent="تعذر تسجيل الدخول";
+    }
+  }finally{
+    loginRunning=false;
+    $("driverLoginBtn").disabled=false;
+  }
 }
 $("driverLoginBtn").onclick=login;
 $("driverCode").addEventListener("keydown",e=>{if(e.key==="Enter")login()});
