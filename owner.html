@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#07111f">
 <title>لوحة مالك النظام</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;background:#07111f;color:#fff;min-height:100vh}.wrap{max-width:820px;margin:auto;padding:14px}.card{background:#0d1b2d;border:1px solid #1f3552;border-radius:20px;padding:15px;margin-bottom:14px}h1,h2,h3,h4{margin:0 0 10px}label{display:block;font-weight:700;margin:9px 0 6px}input{width:100%;min-height:46px;border-radius:12px;border:1px solid #2b4568;background:#081525;color:#fff;padding:11px 12px;font-size:16px}.btn{border:0;border-radius:12px;min-height:44px;padding:9px 13px;font-size:14px;font-weight:800;cursor:pointer}.full{width:100%}.primary{background:#2f7df6;color:#fff}.success{background:#169c59;color:#fff}.danger{background:#d64646;color:#fff}.dark{background:#17283e;color:#fff}.muted{color:#9fb0c7;font-size:13px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.badge{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;background:#21334b}.on{background:#124f32;color:#99f6c7}.off{background:#522727;color:#ffc0c0}.license{padding:14px;border:1px solid #263e5d;border-radius:16px;margin-top:12px;background:#0a1727}.section{margin-top:14px;padding-top:12px;border-top:1px solid #203652}.device,.driver,.unlinked{padding:11px;border:1px solid #243b58;border-radius:14px;margin-top:9px;background:#091522}.device-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;word-break:break-all;color:#b8c7db}.hidden{display:none!important}.msg{margin-top:10px;font-size:14px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.form-grid .wide{grid-column:1/-1}.countline{display:flex;gap:6px;flex-wrap:wrap}.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:900;font-size:17px}.smallbtn{min-height:38px;padding:7px 10px}.empty{padding:10px 0;color:#8fa2bb;font-size:13px}@media(max-width:560px){.wrap{padding:9px}.card{padding:12px;border-radius:16px}.row.actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.row.actions .btn{width:100%}.form-grid{grid-template-columns:1fr}.form-grid .wide{grid-column:auto}}
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Tahoma,Arial,sans-serif;background:#07111f;color:#fff;min-height:100vh}.wrap{max-width:820px;margin:auto;padding:14px}.card{background:#0d1b2d;border:1px solid #1f3552;border-radius:20px;padding:15px;margin-bottom:14px}h1,h2,h3,h4{margin:0 0 10px}label{display:block;font-weight:700;margin:9px 0 6px}input{width:100%;min-height:46px;border-radius:12px;border:1px solid #2b4568;background:#081525;color:#fff;padding:11px 12px;font-size:16px}.btn{border:0;border-radius:12px;min-height:44px;padding:9px 13px;font-size:14px;font-weight:800;cursor:pointer}.full{width:100%}.primary{background:#2f7df6;color:#fff}.success{background:#169c59;color:#fff}.danger{background:#d64646;color:#fff}.dark{background:#17283e;color:#fff}.muted{color:#9fb0c7;font-size:13px}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.between{justify-content:space-between}.badge{padding:5px 9px;border-radius:999px;font-size:12px;font-weight:800;background:#21334b}.on{background:#124f32;color:#99f6c7}.off{background:#522727;color:#ffc0c0}.license{padding:14px;border:1px solid #263e5d;border-radius:16px;margin-top:12px;background:#0a1727}.section{margin-top:14px;padding-top:12px;border-top:1px solid #203652}.device,.driver,.unlinked{padding:11px;border:1px solid #243b58;border-radius:14px;margin-top:9px;background:#091522}.device-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;word-break:break-all;color:#b8c7db}.hidden{display:none!important}.msg{margin-top:10px;font-size:14px}.topbar{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.form-grid .wide{grid-column:1/-1}.code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-weight:900;font-size:17px}.smallbtn{min-height:38px;padding:7px 10px}.empty{padding:10px 0;color:#8fa2bb;font-size:13px}.notice{margin-top:10px;padding:10px;border-radius:12px;background:#10243a;border:1px solid #27496f;font-size:13px}.new-restaurant{border-color:#2f7df6}.created-box{margin-top:10px;padding:12px;border-radius:14px;background:#0a1727;border:1px solid #24558a}.created-box strong{display:block;margin-bottom:5px}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}@media(max-width:560px){.wrap{padding:9px}.card{padding:12px;border-radius:16px}.row.actions{display:grid;grid-template-columns:1fr 1fr;width:100%}.row.actions .btn{width:100%}.form-grid{grid-template-columns:1fr}.form-grid .wide{grid-column:auto}}
 </style>
 </head>
 <body>
@@ -22,6 +22,18 @@
   </section>
 
   <section id="dashboard" class="hidden">
+    <div class="card new-restaurant">
+      <h2>➕ إضافة مطعم جديد</h2>
+      <div class="muted">اكتب اسم المطعم وكود دخول الإدارة فقط. معرّف المطعم يتم إنشاؤه تلقائياً.</div>
+      <div class="form-grid" style="margin-top:10px">
+        <input id="newRestaurantName" class="wide" placeholder="اسم المطعم، مثال: مطعم النخيل">
+        <input id="newAdminCode" class="wide" placeholder="كود دخول إدارة المطعم، مثال: admin2580">
+        <button id="addRestaurantBtn" class="btn primary wide">+ إنشاء المطعم</button>
+      </div>
+      <div id="addRestaurantMsg" class="msg muted"></div>
+      <div id="createdRestaurant" class="created-box hidden"></div>
+    </div>
+
     <div class="card">
       <div class="row between"><div><h2>المطاعم</h2><div class="muted">كل سائق تضيفه من هنا يرتبط بالمطعم تلقائياً.</div></div><span id="restaurantCount" class="badge">0</span></div>
       <div id="licensesList"></div>
@@ -42,6 +54,35 @@ async function isOwner(uid){const s=await get(ref(db,"owners/"+uid));return s.ex
 function stopWatch(){if(licensesUnsub){licensesUnsub();licensesUnsub=null}if(codesUnsub){codesUnsub();codesUnsub=null}}
 function showLogin(msg=""){stopWatch();$("dashboard").classList.add("hidden");$("loginCard").classList.remove("hidden");$("logoutBtn").classList.add("hidden");$("loginMsg").textContent=msg}
 function showDashboard(){$("loginCard").classList.add("hidden");$("dashboard").classList.remove("hidden");$("logoutBtn").classList.remove("hidden")}
+function makeRestaurantId(){const chars="abcdefghjkmnpqrstuvwxyz23456789";let s="rest-";for(let i=0;i<8;i++)s+=chars[Math.floor(Math.random()*chars.length)];return s}
+async function createUniqueRestaurantId(){for(let i=0;i<8;i++){const id=makeRestaurantId(),s=await get(ref(db,"licenses/"+id));if(!s.exists())return id}throw new Error("id-generation-failed")}
+
+async function addRestaurant(){
+  const name=$("newRestaurantName").value.trim(),adminCode=$("newAdminCode").value.trim();
+  const msg=$("addRestaurantMsg"),created=$("createdRestaurant"),btn=$("addRestaurantBtn");
+  created.classList.add("hidden");msg.textContent="";
+  if(!name)return alert("اكتب اسم المطعم");
+  if(!adminCode)return alert("اكتب كود دخول إدارة المطعم");
+  if(adminCode.length<4||/[.#$\[\]\/]/.test(adminCode))return alert("كود الإدارة يجب أن يكون 4 أحرف/أرقام على الأقل ولا يحتوي . # $ [ ] /");
+  btn.disabled=true;msg.textContent="جاري إنشاء المطعم...";
+  try{
+    const codeExists=await get(ref(db,"accessCodes/"+adminCode));
+    if(codeExists.exists())throw new Error("code-exists");
+    const licenseId=await createUniqueRestaurantId(),now=Date.now();
+    const updates={};
+    updates[`licenses/${licenseId}`]={name,active:true,createdAt:now};
+    updates[`accessCodes/${adminCode}`]={role:"admin",name:"إدارة "+name,phone:"",enabled:true,licenseId,createdAt:now};
+    updates[`restaurants/${licenseId}/meta`]={name,createdAt:now};
+    await update(ref(db),updates);
+    $("newRestaurantName").value="";$("newAdminCode").value="";
+    msg.textContent="تم إنشاء المطعم بنجاح ✅";
+    created.innerHTML=`<strong>بيانات المطعم الجديد</strong><div>الاسم: ${esc(name)}</div><div>معرّف المطعم: <span class="mono">${esc(licenseId)}</span></div><div>كود الإدارة: <span class="mono">${esc(adminCode)}</span></div><div class="notice">احتفظ بكود الإدارة وأعطه لإدارة هذا المطعم فقط.</div>`;
+    created.classList.remove("hidden");
+  }catch(e){
+    console.error(e);
+    msg.textContent=e?.message==="code-exists"?"هذا كود الإدارة مستخدم مسبقاً. اختر كوداً آخر.":"تعذر إنشاء المطعم. حاول مرة أخرى.";
+  }finally{btn.disabled=false}
+}
 
 function render(){
   const list=$("licensesList"),entries=Object.entries(licensesData||{});
@@ -98,8 +139,8 @@ function render(){
     for(const [code,d] of drivers){
       const el=document.createElement("div");el.className="driver";
       el.innerHTML=`<div class="row between"><div><strong>${esc(d.name||"سائق")}</strong><div class="muted">📞 ${esc(d.phone||"—")}</div></div><div><div class="code">${esc(code)}</div><span class="badge ${d.enabled===true?"on":"off"}">${d.enabled===true?"فعال":"متوقف"}</span></div></div><div class="row actions" style="margin-top:8px"><button class="btn dark toggle-driver">${d.enabled===true?"إيقاف":"تفعيل"}</button><button class="btn danger delete-driver">حذف</button></div>`;
-      el.querySelector(".toggle-driver").onclick=()=>update(ref(db,"accessCodes/"+code),{enabled:d.enabled===true?false:true});
-      el.querySelector(".delete-driver").onclick=async()=>{if(confirm("حذف السائق "+(d.name||code)+" وكوده؟"))await remove(ref(db,"accessCodes/"+code))};
+      el.querySelector(".toggle-driver").onclick=async()=>{const enabled=d.enabled===true?false:true;await Promise.all([update(ref(db,"accessCodes/"+code),{enabled}),update(ref(db,`restaurantAccessCodes/${licenseId}/${code}`),{enabled})])};
+      el.querySelector(".delete-driver").onclick=async()=>{if(confirm("حذف السائق "+(d.name||code)+" وكوده؟"))await Promise.all([remove(ref(db,"accessCodes/"+code)),remove(ref(db,`restaurantAccessCodes/${licenseId}/${code}`))])};
       driversBox.appendChild(el);
     }
 
@@ -108,7 +149,8 @@ function render(){
       if(!name||!code)return alert("اكتب اسم السائق وكود الدخول");
       if(code.length<4||/[.#$\[\]\/]/.test(code))return alert("الكود يجب أن يكون 4 أحرف/أرقام على الأقل ولا يحتوي . # $ [ ] /");
       const exists=await get(ref(db,"accessCodes/"+code));if(exists.exists())return alert("هذا الكود مستخدم مسبقاً");
-      await set(ref(db,"accessCodes/"+code),{role:"driver",name,phone,enabled:true,licenseId,createdAt:Date.now()});
+      const data={role:"driver",name,phone,enabled:true,licenseId,createdAt:Date.now()};
+      await Promise.all([set(ref(db,"accessCodes/"+code),data),set(ref(db,`restaurantAccessCodes/${licenseId}/${code}`),data)]);
       box.querySelector(".driver-name").value="";box.querySelector(".driver-phone").value="";box.querySelector(".driver-code").value="";
     };
 
@@ -116,7 +158,7 @@ function render(){
     for(const [code,d] of unlinked){
       const el=document.createElement("div");el.className="unlinked";
       el.innerHTML=`<div class="row between"><div><strong>${esc(d.name||"سائق")}</strong><div class="muted">كود: ${esc(code)} · ${esc(d.phone||"بدون هاتف")}</div></div><button class="btn success smallbtn attach">ربطه بهذا المطعم</button></div>`;
-      el.querySelector(".attach").onclick=()=>update(ref(db,"accessCodes/"+code),{licenseId});
+      el.querySelector(".attach").onclick=async()=>{const data={...d,licenseId};await Promise.all([update(ref(db,"accessCodes/"+code),{licenseId}),set(ref(db,`restaurantAccessCodes/${licenseId}/${code}`),data)])};
       unlinkedBox.appendChild(el);
     }
 
@@ -135,6 +177,7 @@ function render(){
 
 function watchData(){stopWatch();licensesUnsub=onValue(ref(db,"licenses"),s=>{licensesData=s.val()||{};render()},e=>{console.error(e);alert("تعذر قراءة المطاعم")});codesUnsub=onValue(ref(db,"accessCodes"),s=>{codesData=s.val()||{};render()},e=>{console.error(e);alert("تعذر قراءة أكواد السائقين")})}
 
+$("addRestaurantBtn").onclick=addRestaurant;
 $("loginBtn").onclick=async()=>{const email=$("email").value.trim(),password=$("password").value;$("loginMsg").textContent="جاري تسجيل الدخول...";try{const c=await signInWithEmailAndPassword(auth,email,password);if(!(await isOwner(c.user.uid))){await signOut(auth);return showLogin("هذا الحساب ليس مالك النظام.")}showDashboard();watchData()}catch(e){console.error(e);showLogin("البريد أو كلمة المرور غير صحيحة.")}};
 $("logoutBtn").onclick=()=>signOut(auth);
 onAuthStateChanged(auth,async user=>{if(!user)return showLogin();try{if(await isOwner(user.uid)){showDashboard();watchData()}else{await signOut(auth);showLogin("هذا الحساب غير مخول.")}}catch(e){console.error(e);showLogin("تعذر التحقق من صلاحية المالك.")}});
