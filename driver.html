@@ -173,7 +173,7 @@ async function checkExisting(){
       }
       const approved=await ensureDeviceApproval(code,licenseId);
       if(!approved)return false;
-      location.replace("driver-app.html?v=40");
+      location.replace("driver-app.html?v=41");
       return true;
     }
   }catch(e){console.error("existing session",e)}
@@ -194,7 +194,7 @@ async function attemptLogin(code,forceFresh=false){
   await saveSession(code,licenseId);
   const approved=await ensureDeviceApproval(code,licenseId);
   if(!approved)return false;
-  location.replace("driver-app.html?v=40");
+  location.replace("driver-app.html?v=41");
   return true;
 }
 
