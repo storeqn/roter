@@ -252,6 +252,7 @@ let paymentMode="cash";
 
 let returningToRestaurant=false;
 let returnStartedAt=null;
+let needsReturnToRestaurant=false;
 let lastHistoryKey=null;
 
 let activeOrders=[];
@@ -264,6 +265,7 @@ function loadLocalForDriver(){
 
   activeOrders=[];
   cashCollected=0;
+  needsReturnToRestaurant=false;
 
   try{
 
@@ -271,6 +273,7 @@ function loadLocalForDriver(){
     const ck=storageKey("cashCollected");
     const hk=storageKey("lastHistoryKey");
     const rk=storageKey("returnStartedAt");
+    const nrk=storageKey("needsReturnToRestaurant");
 
     if(k){
 
@@ -295,6 +298,14 @@ function loadLocalForDriver(){
       returningToRestaurant=!!returnStartedAt;
     }
 
+    if(nrk){
+      needsReturnToRestaurant=localStorage.getItem(nrk)==="1";
+    }
+
+    if(returningToRestaurant){
+      needsReturnToRestaurant=true;
+    }
+
   }catch(e){}
 }
 
@@ -304,6 +315,7 @@ function saveLocal(){
   const ck=storageKey("cashCollected");
   const hk=storageKey("lastHistoryKey");
   const rk=storageKey("returnStartedAt");
+  const nrk=storageKey("needsReturnToRestaurant");
 
   if(k){
     localStorage.setItem(k,JSON.stringify(activeOrders));
@@ -324,6 +336,14 @@ function saveLocal(){
       localStorage.setItem(rk,String(returnStartedAt));
     }else{
       localStorage.removeItem(rk);
+    }
+  }
+
+  if(nrk){
+    if(needsReturnToRestaurant){
+      localStorage.setItem(nrk,"1");
+    }else{
+      localStorage.removeItem(nrk);
     }
   }
 
@@ -400,7 +420,8 @@ function values(){
     deliveryStartedAt:current?.deliveryStartedAt||null,
     driverState:driverState(),
     returningToRestaurant,
-    returnStartedAt
+    returnStartedAt,
+    needsReturnToRestaurant
   };
 }
 
@@ -492,8 +513,13 @@ function renderActiveOrders(){
     box.innerHTML=
       '<div class="empty-orders">لا توجد طلبات حالية</div>';
 
-    returnBtn.hidden=!trackingStarted;
-    returnBtn.disabled=!trackingStarted;
+    const shouldShowReturn=
+      trackingStarted
+      &&
+      (returningToRestaurant || needsReturnToRestaurant);
+
+    returnBtn.hidden=!shouldShowReturn;
+    returnBtn.disabled=!shouldShowReturn;
 
     returnBtn.textContent=
       returningToRestaurant
@@ -636,6 +662,7 @@ async function startOrderDelivery(key){
 
   returningToRestaurant=false;
   returnStartedAt=null;
+  needsReturnToRestaurant=false;
 
   refreshAutoState();
   renderActiveOrders();
@@ -712,6 +739,10 @@ async function finishOrderDelivery(key){
   }
 
   activeOrders.splice(idx,1);
+
+  if(!activeOrders.length){
+    needsReturnToRestaurant=true;
+  }
 
   refreshAutoState();
   renderActiveOrders();
@@ -817,6 +848,7 @@ async function addOrder(){
 
   returningToRestaurant=false;
   returnStartedAt=null;
+  needsReturnToRestaurant=false;
 
   saveLocal();
 
@@ -871,6 +903,7 @@ async function finishReturn(){
 
   returningToRestaurant=false;
   returnStartedAt=null;
+  needsReturnToRestaurant=false;
 
   saveLocal();
 
@@ -892,6 +925,10 @@ returnBtn.onclick=async()=>{
   if(returningToRestaurant){
 
     return finishReturn();
+  }
+
+  if(!needsReturnToRestaurant){
+    return;
   }
 
   returningToRestaurant=true;
@@ -1443,6 +1480,7 @@ async()=>{
 
   returningToRestaurant=false;
   returnStartedAt=null;
+  needsReturnToRestaurant=false;
 
   saveLocal();
 
