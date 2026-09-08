@@ -1,0 +1,47 @@
+name: Build Zooq Admin APK
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'android-zooq-admin-app/**'
+      - '.github/workflows/build-zooq-admin-apk.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Generate launcher icons
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y imagemagick
+          base64 -d android-zooq-admin-app/zooq-icon.b64 > zooq-icon.jpg
+          mkdir -p android-zooq-admin-app/app/src/main/res/mipmap-mdpi android-zooq-admin-app/app/src/main/res/mipmap-hdpi android-zooq-admin-app/app/src/main/res/mipmap-xhdpi android-zooq-admin-app/app/src/main/res/mipmap-xxhdpi android-zooq-admin-app/app/src/main/res/mipmap-xxxhdpi
+          convert zooq-icon.jpg -resize 48x48! android-zooq-admin-app/app/src/main/res/mipmap-mdpi/ic_launcher.png
+          convert zooq-icon.jpg -resize 72x72! android-zooq-admin-app/app/src/main/res/mipmap-hdpi/ic_launcher.png
+          convert zooq-icon.jpg -resize 96x96! android-zooq-admin-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png
+          convert zooq-icon.jpg -resize 144x144! android-zooq-admin-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
+          convert zooq-icon.jpg -resize 192x192! android-zooq-admin-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
+          cp android-zooq-admin-app/app/src/main/res/mipmap-mdpi/ic_launcher.png android-zooq-admin-app/app/src/main/res/mipmap-mdpi/ic_launcher_round.png
+          cp android-zooq-admin-app/app/src/main/res/mipmap-hdpi/ic_launcher.png android-zooq-admin-app/app/src/main/res/mipmap-hdpi/ic_launcher_round.png
+          cp android-zooq-admin-app/app/src/main/res/mipmap-xhdpi/ic_launcher.png android-zooq-admin-app/app/src/main/res/mipmap-xhdpi/ic_launcher_round.png
+          cp android-zooq-admin-app/app/src/main/res/mipmap-xxhdpi/ic_launcher.png android-zooq-admin-app/app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png
+          cp android-zooq-admin-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png android-zooq-admin-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png
+      - name: Build debug APK
+        working-directory: android-zooq-admin-app
+        run: gradle assembleDebug
+      - name: Rename APK
+        run: cp android-zooq-admin-app/app/build/outputs/apk/debug/app-debug.apk ZooqDeliveryAdmin.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ZooqDeliveryAdmin-APK
+          path: ZooqDeliveryAdmin.apk
