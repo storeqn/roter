@@ -1,0 +1,12 @@
+{
+  "name": "مطعم ذوق - الإدارة",
+  "short_name": "ذوق إدارة",
+  "start_url": "./zooq-admin.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#071322",
+  "theme_color": "#071322",
+  "icons": [
+    {"src":"./zooq-icon.png","sizes":"220x220","type":"image/png","purpose":"any maskable"}
+  ]
+}
